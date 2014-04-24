@@ -1,0 +1,8 @@
+2014/04/24 16:48:29 [notice] 10444#0: using the "epoll" event method
+2014/04/24 16:48:29 [notice] 10444#0: openresty/1.5.11.1
+2014/04/24 16:48:29 [notice] 10444#0: built by gcc 4.7.3 (Ubuntu/Linaro 4.7.3-1ubuntu1) 
+2014/04/24 16:48:29 [notice] 10444#0: OS: Linux 3.8.0-19-generic
+2014/04/24 16:48:29 [notice] 10444#0: getrlimit(RLIMIT_NOFILE): 1024:4096
+2014/04/24 16:48:29 [notice] 10445#0: signal 3 (SIGQUIT) received, shutting down
+2014/04/24 16:48:29 [info] 10445#0: epoll_wait() failed (4: Interrupted system call)
+2014/04/24 16:48:29 [notice] 10445#0: exit
