@@ -25,15 +25,17 @@ __DATA__
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = httpc:receive()
+            local res, err = hp:receive()
             ngx.print(res.body)
         ';
     }
@@ -54,15 +56,17 @@ OK
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = httpc:receive()
+            local res, err = hp:receive()
             ngx.status = res.status
             ngx.print(res.body)
         ';
@@ -88,15 +92,17 @@ OK
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = httpc:receive()
+            local res, err = hp:receive()
             ngx.status = res.status
             ngx.say(res.headers["X-Test"])
         ';
@@ -121,10 +127,12 @@ x-value
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b",
                 query = {
@@ -133,7 +141,7 @@ x-value
                 },
             })
 
-            local res, err = httpc:receive()
+            local res, err = hp:receive()
             ngx.status = res.status
             for k,v in pairs(res.headers) do
                 ngx.header[k] = v
@@ -163,15 +171,17 @@ X-Header-B: 2
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "HEAD",
                 path = "/b"
             })
 
-            local res, err = httpc:receive()
+            local res, err = hp:receive()
             ngx.status = res.status
             if res.body then
                 ngx.print(res.body)
@@ -187,4 +197,3 @@ GET /a
 --- no_error_log
 [error]
 [warn]
-

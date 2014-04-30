@@ -25,15 +25,17 @@ __DATA__
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
-            local httpc = http:new()
-            httpc:set_timeout(5000)
-            local ok, err = httpc:request("127.0.0.1", ngx.var.server_port, {
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = httpc:receive{
+            local res, err = hp:receive{
                 header_filter = function (status, headers)
                     headers["X-Test-A"] = nil
                 end
@@ -65,17 +67,20 @@ x-value-b
 --- config
     location = /a {
         content_by_lua '
-            local http = require "resty.httpipe"
+            local httpipe = require "resty.httpipe"
+            local from = httpipe:new()
 
-            local from = http:new()
             from:set_timeout(5000)
+
             local ok, err = from:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local to = http:new()
+            local to = httpipe:new()
+
             to:set_timeout(5000)
+
             local headers = {
                 ["Content-Length"] = 100
             }
@@ -113,4 +118,3 @@ GET /a
 --- no_error_log
 [error]
 [warn]
-
