@@ -20,7 +20,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 lua_package_path "/path/to/lua-resty-httpipe/lib/?.lua;;";
 
 server {
-  
+
   listen 9090;
 
   location /echo {
@@ -164,7 +164,7 @@ server {
       ngx.say(res2.body)
     ';
   }
-  
+
 }
 ````
 
@@ -226,7 +226,7 @@ Accept: */*
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
-The first optional argument, `sock`, can be used to specify the readable TCP socket for response parsing, such as `ngx.req.socket`. With it, you do not need to call `reqeust` method any more.
+The first optional argument, `sock`, can be used to specify the readable TCP socket for HTTP response parsing. With it, you do not need to call `reqeust` method any more.
 
 The second optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
 
@@ -302,7 +302,7 @@ Returns a `res` object containing three attributes:
 * `res.status` (number)
 : The resonse status, e.g. 200
 * `res.headers` (table)
-: A Lua table with response headers. 
+: A Lua table with response headers.
 * `res.body` (string)
 : The plain response body
 * `res.eof` (int)
@@ -316,7 +316,7 @@ In case of errors, returns nil with a string describing the error.
 
 ## read
 
-`syntax: local typ, res, err = hp:read()` 
+`syntax: local typ, res, err = hp:read()`
 
 Streaming parser for the response data.
 

@@ -98,7 +98,7 @@ x-value-b
             })
 
             local res1, err = from:receive{
-                body_filter = function(chunk)
+                body_filter = function (chunk)
                     to:write(chunk)
                 end
             }
