@@ -62,13 +62,13 @@ x-value-b
 [warn]
 
 
-=== TEST 2: body filter.
+=== TEST 2: Body filter.
 --- http_config eval: $::HttpConfig
 --- config
     location = /a {
         content_by_lua '
             local httpipe = require "resty.httpipe"
-            local from = httpipe:new()
+            local from = httpipe:new(nil, 5)
 
             from:set_timeout(5000)
 
@@ -77,16 +77,23 @@ x-value-b
                 path = "/b"
             })
 
+            local res0, err = from:receive{
+                header_filter = function (status, headers)
+                    if status == 200 then
+                        return 1
+                    end
+            end }
+
             local to = httpipe:new()
 
             to:set_timeout(5000)
 
             local headers = {
-                ["Content-Length"] = 100
+                ["Content-Length"] = res0.headers["Content-Length"]
             }
             local ok, err = to:request("127.0.0.1", ngx.var.server_port, {
                 method = "POST",
-                path = "/b",
+                path = "/c",
                 headers = headers,
             })
 
@@ -105,10 +112,27 @@ x-value-b
     location = /b {
         content_by_lua '
             local t = {}
-            for i=1, 32768 do
-                t[i] = 0
+            local chunksize = 1024
+            for i=1, chunksize do
+                t[i] = 1
             end
+            ngx.header.content_length = chunksize
             ngx.print(table.concat(t))
+        ';
+    }
+    location = /c {
+        content_by_lua '
+            ngx.req.read_body()
+            local body, err = ngx.req.get_body_data()
+            if #body == 1024 then
+                local t = {}
+                for i=1, 32768 do
+                    t[i] = 0
+                end
+                ngx.print(table.concat(t))
+             else
+                ngx.log(ngx.ERROR, "failed")
+             end
         ';
     }
 --- request
