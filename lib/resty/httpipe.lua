@@ -23,7 +23,7 @@ local encode_args = ngx.encode_args
 -- local print = print
 
 
-local _M = { _VERSION = "0.03" }
+local _M = { _VERSION = "0.04" }
 
 --------------------------------------
 -- LOCAL CONSTANTS                  --
