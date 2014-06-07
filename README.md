@@ -272,7 +272,7 @@ Returns a `res` object containing four attributes:
 * `res.body` (string)
 : The plain response body.
 * `res.eof` (int)
-: If `res.eof` is `true` indicate already consume all the data; Otherwise, the request there is still no end, you need call `hp:close()` to close the connection forcibly.
+: If `res.eof` is `true` indicate already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
 **Note** All headers (request and response) are noramlized for
 capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
@@ -311,7 +311,7 @@ local res, err = hp:response{
 }
 ````
 
-**Note** When `return 1	` in callback function，receive process will be interrupted.
+**Note** When `return 1	` in callback function，filter process will be interrupted.
 
 Returns a res object containing four attributes, as same as `hp:request` method.
 
