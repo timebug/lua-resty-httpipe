@@ -434,6 +434,7 @@ local function eof(self)
     return 'eof', nil
 end
 
+
 -- local typ, res, err = _M:read()
 function _M.read(self)
     local sock = self.sock
@@ -456,6 +457,7 @@ function _M.read(self)
 
     return nil, nil, "bad state: " .. self.state
 end
+
 
 -- local chunk, err = _M:read_body()
 function _M.read_body(self)
