@@ -23,7 +23,7 @@ local encode_args = ngx.encode_args
 -- local print = print
 
 
-local _M = { _VERSION = "0.04" }
+local _M = { _VERSION = "0.04", FULL = 1, BODY = 2 }
 
 --------------------------------------
 -- LOCAL CONSTANTS                  --
@@ -136,13 +136,19 @@ local function req_header(self, opts)
     end
 
     opts.headers = opts.headers or {}
+
     local headers = {}
+
     for k, v in pairs(opts.headers) do
         headers[normalize_header(k)] = v
     end
 
-    if opts.body then
+    if type(opts.body) == "string" then
         headers['Content-Length'] = #opts.body
+    end
+
+    if self.method == "PUT" or self.method == "POST" then
+        headers['Content-Length'] = tonumber(headers['Content-Length']) or 0
     end
 
     if not headers['Host'] then
@@ -174,7 +180,7 @@ local function req_header(self, opts)
 
     insert(req, "\r\n")
 
-    return concat(req)
+    return concat(req), headers
 end
 
 
@@ -182,18 +188,13 @@ end
 -- HTTP PIPE FUNCTIONS              --
 --------------------------------------
 
--- local hp, err = _M:new(sock?, chunk_size?)
-function _M.new(self, sock, chunk_size)
+-- local hp, err = _M:new(chunk_size?)
+function _M.new(self, chunk_size)
     local state = STATE_NOT_READY
 
-    if sock then
-        state = STATE_BEGIN
-    else
-        local s, err = tcp()
-        if not s then
-            return nil, err
-        end
-        sock = s
+    local sock, err = tcp()
+    if not sock then
+        return nil, err
     end
 
     return setmetatable({
@@ -208,61 +209,6 @@ function _M.new(self, sock, chunk_size)
         method = nil,
         eof = nil,
     }, mt)
-end
-
-
--- local ok, err = _M:request(host, port, opts?)
-function _M.request(self, host, port, opts)
-    local sock = self.sock
-    if not sock then
-        return nil, "not initialized"
-    end
-
-    opts = opts or {}
-
-    sock:settimeout(opts.timeout or 5000)
-
-    local rc, err = sock:connect(host, port)
-    if not rc then
-        return nil, err
-    end
-
-    if opts.send_timeout then
-        sock:settimeout(opts.send_timeout)
-    end
-
-    if opts.read_timeout then
-        self.read_timeout = opts.read_timeout
-    end
-
-    local version = opts.version
-    if version then
-        if version ~= 0 and version ~= 1 then
-            return nil, "unknow HTTP version"
-        end
-    else
-        opts.version = 1
-    end
-
-    opts.host = host
-
-    local header = req_header(self, opts)
-    -- print(header)
-    local bytes, err = sock:send(header)
-    if not bytes then
-        return nil, err
-    end
-
-    if opts and type(opts.body) == "string" then
-        local bytes, err = sock:send(opts.body)
-        if not bytes then
-            return nil, err
-        end
-    end
-
-    self.state = STATE_BEGIN
-
-    return 1
 end
 
 
@@ -291,7 +237,7 @@ local function discard_line(self)
 end
 
 
-local function read_body(self)
+local function read_body_part(self)
     if self.method == "HEAD" then
         self.state = STATE_EOF
         return 'body_end', nil
@@ -369,7 +315,7 @@ local function read_body(self)
 end
 
 
-local function read_header(self)
+local function read_header_part(self)
     local read_line = self.read_line
 
     local line, err = read_line()
@@ -442,8 +388,8 @@ local function read_statusline(self)
 end
 
 
--- local ok, err = _M:close(force?)
-function _M.close(self, ...)
+-- local ok, err = _M:set_keepalive(...)
+function _M.set_keepalive(self, ...)
     local sock = self.sock
     if not sock then
         return nil, "not initialized"
@@ -451,17 +397,40 @@ function _M.close(self, ...)
 
     self.eof = 1
 
-    local force = ...
-    if not force and self.keepalive then
-        return sock:setkeepalive()
+    if self.keepalive then
+        return sock:setkeepalive(...)
     end
 
     return sock:close()
 end
 
 
+-- local times, err = _M:get_reused_times()
+function _M.get_reused_times(self)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    return sock:getreusedtimes()
+end
+
+
+-- local ok, err = _M:close()
+function _M.close(self)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    self.eof = 1
+
+    return sock:close()
+end
+
+
 local function eof(self)
-    _M.close(self)
+    _M.set_keepalive(self)
     return 'eof', nil
 end
 
@@ -488,27 +457,44 @@ function _M.read(self)
     return nil, nil, "bad state: " .. self.state
 end
 
--- local bytes, err = _M:write(chunk)
-function _M.write(self, chunk)
+-- local chunk, err = _M:read_body()
+function _M.read_body(self)
     local sock = self.sock
     if not sock then
         return nil, "not initialized"
     end
 
-    return sock:send(chunk)
+    if self.state < STATE_READING_BODY then
+        return nil, "not ready for reading body"
+    end
+
+    local typ, res, err = _M.read(self)
+    if not typ then
+        return nil, err
+    end
+
+    if typ == 'body' then
+        return res
+    end
+
+    if typ == 'body_end' then
+        _M.eof(self)
+    end
+
+    return -- eof
 end
 
 
 state_handlers = {
     read_statusline,
-    read_header,
-    read_body,
+    read_header_part,
+    read_body_part,
     eof
 }
 
 
--- local res, err = _M:receive(callback?)
-function _M.receive(self, ...)
+-- local res, err = _M:response(callback?)
+function _M.response(self, ...)
     local sock = self.sock
     if not sock then
         return nil, "not initialized"
@@ -562,6 +548,99 @@ function _M.receive(self, ...)
 
     return { status = status, headers = headers, body = concat(chunks),
              eof = self.eof }
+end
+
+
+-- local res, err = _M:request(host, port, opts?)
+-- local res, err = _M:request("unix:/path/to/unix-domain.socket", opts?)
+function _M.request(self, ...)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    local arguments = {...}
+
+    local n = #arguments
+    if n ~= 1 and n ~= 2 and n ~= 3 then
+        return nil, "expecting 1, 2, or 3 arguments, but seen " .. tostring(n)
+    end
+
+    local opts = {}
+    if type(arguments[n]) == "table" then
+        opts = arguments[n]
+        arguments[n] = nil
+    end
+
+    opts.host = arguments[1]
+
+    sock:settimeout(opts.timeout or 5000)
+
+    local rc, err = sock:connect(unpack(arguments))
+    if not rc then
+        return nil, err
+    end
+
+    if opts.send_timeout then
+        sock:settimeout(opts.send_timeout)
+    end
+
+    if opts.read_timeout then
+        self.read_timeout = opts.read_timeout
+    end
+
+    local version = opts.version
+    if version then
+        if version ~= 0 and version ~= 1 then
+            return nil, "unknown HTTP version"
+        end
+    else
+        opts.version = 1
+    end
+
+    local reqstr, headers = req_header(self, opts)
+    local bytes, err = sock:send(reqstr)
+    if not bytes then
+        return nil, err
+    end
+
+    if type(opts.body) == "string" then
+        local bytes, err = sock:send(opts.body)
+        if not bytes then
+            return nil, err
+        end
+    end
+
+    if type(opts.body) == "function" then
+        local datalen = tonumber(headers["Content-Length"]) or 0
+        while datalen > 0 do
+            local chunk = opts.body()
+            if not chunk then
+                break
+            end
+
+            datalen = datalen - #chunk
+
+            local bytes, err = sock:send(chunk)
+            if not bytes then
+                return nil, err
+            end
+        end
+    end
+
+    self.state = STATE_BEGIN
+
+    if opts.stream == _M.FULL then
+        return {}
+    end
+
+    return _M.response(self, {
+        header_filter = function (status, headers)
+            if opts.stream == _M.BODY then
+                return 1
+            end
+        end
+    })
 end
 
 

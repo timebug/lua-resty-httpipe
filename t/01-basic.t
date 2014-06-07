@@ -30,12 +30,11 @@ __DATA__
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = hp:receive()
             ngx.print(res.body)
         ';
     }
@@ -61,12 +60,11 @@ OK
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = hp:receive()
             ngx.status = res.status
             ngx.print(res.body)
         ';
@@ -97,12 +95,11 @@ OK
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b"
             })
 
-            local res, err = hp:receive()
             ngx.status = res.status
             ngx.say(res.headers["X-Test"])
         ';
@@ -132,7 +129,7 @@ x-value
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b",
                 query = {
@@ -141,7 +138,6 @@ x-value
                 },
             })
 
-            local res, err = hp:receive()
             ngx.status = res.status
             for k,v in pairs(res.headers) do
                 ngx.header[k] = v
@@ -176,12 +172,11 @@ X-Header-B: 2
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "HEAD",
                 path = "/b"
             })
 
-            local res, err = hp:receive()
             ngx.status = res.status
             if res.body then
                 ngx.print(res.body)

@@ -51,16 +51,10 @@ server {
 
       hp:set_timeout(5 * 1000) -- 5 sec
 
-      local ok, err = hp:request("127.0.0.1", 9090, {
+      local res, err = hp:request("127.0.0.1", 9090, {
                                      method = "GET", path = "/echo" })
-      if not ok then
-          ngx.log(ngx.ERR, "failed to request: ", err)
-          return ngx.exit(503)
-      end
-
-      local res, err = hp:receive()
       if not res then
-          ngx.log(ngx.ERR, "failed to receive: ", err)
+          ngx.log(ngx.ERR, "failed to request: ", err)
           return ngx.exit(503)
       end
 
@@ -79,7 +73,7 @@ server {
       local cjson = require "cjson"
       local httpipe = require "resty.httpipe"
 
-      local hp, err = httpipe:new(nil, 10) -- chunk_size = 10
+      local hp, err = httpipe:new(10) -- chunk_size = 10
       if not hp then
           ngx.log(ngx.ERR, "failed to new httpipe: ", err)
           return ngx.exit(503)
@@ -87,14 +81,15 @@ server {
 
       hp:set_timeout(5 * 1000) -- 5 sec
 
-      local ok, err = hp:request("127.0.0.1", 9090, {
-                                     method = "GET", path = "/echo" })
-      if not ok then
+      local res, err = hp:request("127.0.0.1", 9090, {
+                                     method = "GET", path = "/echo",
+                                     stream = httpipe.FULL })
+      if not res then
           ngx.log(ngx.ERR, "failed to request: ", err)
           return ngx.exit(503)
       end
 
-      -- streaming parser
+      -- full streaming parser
 
       while true do
           local typ, res, err = hp:read()
@@ -116,52 +111,36 @@ server {
     content_by_lua '
       local httpipe = require "resty.httpipe"
 
-      local from, err = httpipe:new()
+      local h0, err = httpipe:new()
 
-      from:set_timeout(5 * 1000) -- 5 sec
+      h0:set_timeout(5 * 1000) -- 5 sec
 
-      local ok, err = from:request("127.0.0.1", 9090, {
-                                       method = "GET", path = "/echo" })
-
-      local res0, err = from:receive{
-          header_filter = function (status, headers)
-              if status == 200 then
-                  return 1
-              end
-      end }
+      local r0, err = h0:request("127.0.0.1", 9090, {
+                                     method = "GET", path = "/echo",
+                                     stream = httpipe.BODY })
 
       -- from one http stream to another, just like a unix pipe
-      local to, err = httpipe:new()
 
-      to:set_timeout(5 * 1000) -- 5 sec
+      local h1, err = httpipe:new()
+
+      h1:set_timeout(5 * 1000) -- 5 sec
 
       local headers = {
-          ["Content-Length"] = res0.headers["Content-Length"]
+          ["Content-Length"] = r0.headers["Content-Length"]
       }
 
-      local ok, err = to:request("127.0.0.1", 9090, {
+      local r1, err = h1:request("127.0.0.1", 9090, {
                                      method = "POST", path = "/echo",
-                                     headers = headers })
+                                     headers = headers,
+                                     body = function () return h0:read_body() end })
 
-      local res1, err = from:receive{
-          body_filter = function (chunk)
-              local bytes, err = to:write(chunk)
-              if err then
-                  ngx.log(ngx.WARN, "failed to write err: ", err)
-                  return 1
-              end
-          end
-      }
+      ngx.status = r1.status
 
-      local res2, err = to:receive()
-
-      ngx.status = res2.status
-
-      for k, v in pairs(res2.headers) do
+      for k, v in pairs(r1.headers) do
           ngx.header[k] = v
       end
 
-      ngx.say(res2.body)
+      ngx.say(r1.body)
     ';
   }
 
@@ -173,7 +152,7 @@ A typical output of the `/simple` location defined above is:
 ```
 GET /echo HTTP/1.1
 Host: 127.0.0.1
-User-Agent: Resty/HTTPipe-0.03
+User-Agent: Resty/HTTPipe-0.04
 Accept: */*
 
 ```
@@ -182,8 +161,8 @@ A typical output of the `/generic` location defined above is:
 
 ```
 read: ["statusline","200"]
-read: ["header",["Server","openresty\/1.5.11.1","Server: openresty\/1.5.11.1"]]
-read: ["header",["Date","Sat, 19 Apr 2014 11:04:00 GMT","Date: Sat, 19 Apr 2014 11:04:00 GMT"]]
+read: ["header",["Server","openresty\/1.5.12.1","Server: openresty\/1.5.12.1"]]
+read: ["header",["Date","Sat, 07 Jun 2014 07:52:06 GMT","Date: Sat, 07 Jun 2014 07:52:06 GMT"]]
 read: ["header",["Content-Type","text\/plain","Content-Type: text\/plain"]]
 read: ["header",["Connection","keep-alive","Connection: keep-alive"]]
 read: ["header",["Content-Length","84","Content-Length: 84"]]
@@ -194,7 +173,7 @@ read: ["body","Host: 127."]
 read: ["body","0.0.1\r\nUse"]
 read: ["body","r-Agent: R"]
 read: ["body","esty\/HTTPi"]
-read: ["body","pe-0.03\r\nA"]
+read: ["body","pe-0.04\r\nA"]
 read: ["body","ccept: *\/*"]
 read: ["body","\r\n\r\n"]
 read: ["body_end"]
@@ -206,13 +185,13 @@ A typical output of the `/advanced` location defined above is:
 ```
 POST /echo HTTP/1.1
 Content-Length: 84
-User-Agent: Resty/HTTPipe-0.03
+User-Agent: Resty/HTTPipe-0.04
 Accept: */*
 Host: 127.0.0.1
 
 GET /echo HTTP/1.1
 Host: 127.0.0.1
-User-Agent: Resty/HTTPipe-0.03
+User-Agent: Resty/HTTPipe-0.04
 Accept: */*
 
 
@@ -222,13 +201,11 @@ Accept: */*
 
 ## new
 
-`syntax: hp, err = httpipe:new(sock?, chunk_size?)`
+`syntax: hp, err = httpipe:new(chunk_size?)`
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
-The first optional argument, `sock`, can be used to specify the readable TCP socket for HTTP response parsing. With it, you do not need to call `reqeust` method any more.
-
-The second optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
+The first optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
 
 ## set_timeout
 
@@ -236,23 +213,41 @@ The second optional argument, `chunk_size`, specifies the buffer size used by co
 
 Sets the timeout (in ms) protection for subsequent operations, including the `connect` method.
 
-## close
+## set_keepalive
 
-`syntax: ok, err = hp:close(force?)`
+`syntax: ok, err = hp:set_keepalive(max_idle_timeout, pool_size)`
 
-Normally, it will call `hp:close()` method automatically after processing the request.
+Attempts to puts the current connection into the ngx_lua cosocket connection pool.
 
-When HTTP/1.1 request without `Connection: close` header or HTTP/1.0 with `Connection: keep-alive` header, `hp:close()` method will call `sock:set_keepalive` immediately puts the current connection into the ngx_lua cosocket connection pool; Otherwise, it will call `sock:close()` to close the connection.
+**Note** Normally, it will be called automatically after processing the request. In other words, we cannot release the connection back to the pool unless you consume all the data.
 
-Requests cannot release the connection back to the pool unless you consume all the data or call `hp:close(1)` to close the connection forcibly.
+You can specify the max idle timeout (in ms) when the connection is in the pool and the maximal size of the pool every nginx worker process.
 
 In case of success, returns 1. In case of errors, returns nil with a string describing the error.
+
+## get_reused_times
+
+`syntax: times, err = hp:get_reused_times()`
+
+This method returns the (successfully) reused times for the current connection. In case of error, it returns `nil` and a string describing the error.
+
+If the current connection does not come from the built-in connection pool, then this method always returns `0`, that is, the connection has never been reused (yet). If the connection comes from the connection pool, then the return value is always non-zero. So this method can also be used to determine if the current connection comes from the pool.
+
+## close
+
+`syntax: ok, err = hp:close()`
+
+Closes the current connection and returns the status.
+
+In case of success, returns `1`. In case of errors, returns `nil` with a string describing the error.
+
 
 # Requesting
 
 ## request
 
-`syntax: ok, err = hp:request(host, port, opts?)`
+`syntax: res, err = hp:request(host, port, opts?)`
+`syntax: res, err = hp:request("unix:/path/to/unix-domain.socket", opts?)`
 
 The `opts` table accepts the following fields:
 
@@ -261,23 +256,43 @@ The `opts` table accepts the following fields:
 * `path`: The path string. Default to `/`.
 * `query`: Specifies query parameters. Accepts either a string or a Lua table.
 * `headers`: A table of request headers. Accepts a Lua table.
-* `body`: The request body as a string.
+* `body`: The request body as a string, or an iterator function.
 * `timeout`: Sets the timeout in milliseconds for network operations. Defaults to `5000`.
 * `read_timeout`: Sets the timeout in milliseconds for network read operations specially.
 * `send_timeout`: Sets the timeout in milliseconds for network send operations specially.
+* `stream`: Specifies special stream mode, `httpipe.FULL` and `httpipe.BODY` is currently optional.
 
-In case of success, returns 1. In case of errors, returns nil with a string describing the error.
+Returns a `res` object containing four attributes:
 
-## receive
+* `res.status` (number)
+: The resonse status, e.g. 200
+* `res.headers` (table)
+: A Lua table with response headers.
+* `res.body` (string)
+: The plain response body.
+* `res.eof` (int)
+: If `res.eof` is `true` indicate already consume all the data; Otherwise, the request there is still no end, you need call `hp:close()` to close the connection forcibly.
 
-`syntax: local res, err = hp:receive(callback?)`
+**Note** All headers (request and response) are noramlized for
+capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
+normal HTTP "standard."
+
+If `stream` specified as `httpipe.FULL` mode, `res` is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
+
+If `stream` specified as `httpipe.BODY` mode, `res` containing the parsed `status` and `headers`. But, you need to use `hp:read_body` method to read the response body specially.
+
+In case of errors, returns nil with a string describing the error.
+
+## response
+
+`syntax: local res, err = hp:response(callback?)`
 
 The `callback` table accepts the following fields:
 
 * `header_filter`: A callback function for response headers filter
 
 ````lua
-local res, err = from:receive{
+local res, err = hp:response{
     header_filter = function (status, headers)
         if status == 200 then
         	return 1
@@ -288,8 +303,8 @@ end }
 * `body_filter`: A callback function for response body filter
 
 ````lua
-local res1, err = hp:receive{
-    header_filter = function (chunk)
+local res, err = hp:response{
+    body_filter = function (chunk)
         ngx.print(chunk)
     end
 }
@@ -297,20 +312,7 @@ local res1, err = hp:receive{
 
 **Note** When `return 1	` in callback function，receive process will be interrupted.
 
-Returns a `res` object containing three attributes:
-
-* `res.status` (number)
-: The resonse status, e.g. 200
-* `res.headers` (table)
-: A Lua table with response headers.
-* `res.body` (string)
-: The plain response body
-* `res.eof` (int)
-: If `res.eof == 1` indicate already consume all the data; Otherwise, the request there is still no end, you need call `hp:close(1)` to close the connection forcibly.
-
-**Note** All headers (request and response) are noramlized for
-capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
-normal HTTP "standard."
+Returns a res object containing four attributes, as same as `hp:request` method.
 
 In case of errors, returns nil with a string describing the error.
 
@@ -318,25 +320,23 @@ In case of errors, returns nil with a string describing the error.
 
 `syntax: local typ, res, err = hp:read()`
 
-Streaming parser for the response data.
+Streaming parser for the full response.
 
 The user just needs to call the read method repeatedly until a nil token type is returned. For each token returned from the read method, just check the first return value for the current token type. The token type can be `statusline`, `header`, `header_end`, `body`, `body_end` and `eof`. About the format of `res` value, please refer to the above example. For example, several body tokens holding each body data chunk, so `res` value is equal to the body data chunk.
 
 In case of errors, returns nil with a string describing the error.
 
-## write
+## read_body
 
-`syntax: local bytes, err = hp:write(chunk)`
+`syntax: local chunk, err = hp:read_body()`
 
-Sends data without blocking on the current httpipe connection.
+Streaming reader for the response body.
 
-This method is a synchronous operation that will not return until all the data has been flushed into the system socket send buffer or an error occurs.
-
-In case of success, it returns the total number of bytes that have been sent. Otherwise, it returns nil and a string describing the error.
+In case of success, it returns the data received; in case of error, it returns nil with a string describing the error.
 
 # Author
 
-Monkey Zhang <timebug.info@gmail.com>
+Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
 Originally started life based on https://github.com/bakins/lua-resty-http-simple.
 
@@ -348,7 +348,7 @@ Cosocket docs and implementation borrowed from the other lua-resty-* cosocket mo
 
 This module is licensed under the 2-clause BSD license.
 
-Copyright (c) 2014, Monkey Zhang <timebug.info@gmail.com>
+Copyright (c) 2014, Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
 All rights reserved.
 

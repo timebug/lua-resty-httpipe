@@ -30,26 +30,29 @@ __DATA__
 
             hp:set_timeout(5000)
 
-            local ok, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
-                path = "/b"
+                path = "/b",
+                stream = httpipe.FULL
             })
 
-            local res, err = hp:receive{
+            local res, err = hp:response{
                 header_filter = function (status, headers)
                     headers["X-Test-A"] = nil
                 end
             }
+
             ngx.status = res.status
             ngx.say(res.headers["X-Test-A"])
             ngx.say(res.headers["X-Test-B"])
+            ngx.say(res.body)
         ';
     }
     location = /b {
         content_by_lua '
             ngx.header["X-Test-A"] = "x-value-a"
             ngx.header["X-Test-B"] = "x-value-b"
-            ngx.say("OK")
+            ngx.print("OK")
         ';
     }
 --- request
@@ -57,6 +60,7 @@ GET /a
 --- response_body
 nil
 x-value-b
+OK
 --- no_error_log
 [error]
 [warn]
@@ -68,45 +72,33 @@ x-value-b
     location = /a {
         content_by_lua '
             local httpipe = require "resty.httpipe"
-            local from = httpipe:new(nil, 5)
+            local h0 = httpipe:new(5)
 
-            from:set_timeout(5000)
+            h0:set_timeout(5000)
 
-            local ok, err = from:request("127.0.0.1", ngx.var.server_port, {
+            local r0, err = h0:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
-                path = "/b"
+                path = "/b",
+                stream = httpipe.BODY
             })
 
-            local res0, err = from:receive{
-                header_filter = function (status, headers)
-                    if status == 200 then
-                        return 1
-                    end
-            end }
+            local h1 = httpipe:new()
 
-            local to = httpipe:new()
-
-            to:set_timeout(5000)
+            h1:set_timeout(5000)
 
             local headers = {
-                ["Content-Length"] = res0.headers["Content-Length"]
+                ["Content-Length"] = r0.headers["Content-Length"]
             }
-            local ok, err = to:request("127.0.0.1", ngx.var.server_port, {
+
+            local r1, err = h1:request("127.0.0.1", ngx.var.server_port, {
                 method = "POST",
                 path = "/c",
                 headers = headers,
+                body = function () return h0:read_body() end
             })
 
-            local res1, err = from:receive{
-                body_filter = function (chunk)
-                    to:write(chunk)
-                end
-            }
-
-            local res2, err = to:receive()
-
-            ngx.status = res2.status
-            ngx.say(#res2.body)
+            ngx.status = r1.status
+            ngx.say(#r1.body)
         ';
     }
     location = /b {
