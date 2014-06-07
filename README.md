@@ -205,7 +205,7 @@ Accept: */*
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
-The first optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
+The optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
 
 ## set_timeout
 
@@ -247,6 +247,7 @@ In case of success, returns `1`. In case of errors, returns `nil` with a string 
 ## request
 
 `syntax: res, err = hp:request(host, port, opts?)`
+
 `syntax: res, err = hp:request("unix:/path/to/unix-domain.socket", opts?)`
 
 The `opts` table accepts the following fields:
@@ -260,7 +261,7 @@ The `opts` table accepts the following fields:
 * `timeout`: Sets the timeout in milliseconds for network operations. Defaults to `5000`.
 * `read_timeout`: Sets the timeout in milliseconds for network read operations specially.
 * `send_timeout`: Sets the timeout in milliseconds for network send operations specially.
-* `stream`: Specifies special stream mode, `httpipe.FULL` and `httpipe.BODY` is currently optional.
+* `stream`: Specifies special stream mode, `FULL` and `BODY` is currently optional.
 
 Returns a `res` object containing four attributes:
 
@@ -277,9 +278,9 @@ Returns a `res` object containing four attributes:
 capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
 normal HTTP "standard."
 
-If `stream` specified as `httpipe.FULL` mode, `res` is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
+If `stream` specified as `FULL` mode, res is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
 
-If `stream` specified as `httpipe.BODY` mode, `res` containing the parsed `status` and `headers`. But, you need to use `hp:read_body` method to read the response body specially.
+If `stream` specified as `BODY` mode, res containing the parsed `status` and `headers`. You also need to use `hp:read_body` method to read the response body specially.
 
 In case of errors, returns nil with a string describing the error.
 
