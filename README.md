@@ -205,7 +205,7 @@ Accept: */*
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
-The optional argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
+The argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
 
 ## set_timeout
 
@@ -278,9 +278,9 @@ Returns a `res` object containing four attributes:
 capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
 normal HTTP "standard."
 
-If `stream` specified as `FULL` mode, res is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
+If the stream specified as `FULL` mode, res is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
 
-If `stream` specified as `BODY` mode, res containing the parsed `status` and `headers`. You also need to use `hp:read_body` method to read the response body specially.
+If the stream specified as `BODY` mode, res containing the parsed `status` and `headers`. You also need to use `hp:read_body` method to read the response body specially.
 
 In case of errors, returns nil with a string describing the error.
 
