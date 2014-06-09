@@ -83,25 +83,10 @@ end
 
 
 local function escape_path(path)
-    local unescaped = {}
-    local escaped_path = "/"
-
-    gsub(path, "([^/]+)", function (s) insert(unescaped, s) end)
-
-    local n = #unescaped
-    for i=1, n - 1 do
-        escaped_path = escaped_path .. escape_uri(unescaped[i]) .. "/"
-    end
-
-    if n > 0 then
-        escaped_path = escaped_path .. escape_uri(unescaped[n])
-
-        if sub(path, -1, -1) == "/" then
-            escaped_path = escaped_path .. "/"
-        end
-    end
-
-    return escaped_path
+    local s = gsub(path, "([^/]+)", function (s)
+        return escape_uri(s)
+    end)
+    return s
 end
 
 
