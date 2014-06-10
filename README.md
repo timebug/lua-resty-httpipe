@@ -81,10 +81,14 @@ server {
 
       hp:set_timeout(5 * 1000) -- 5 sec
 
-      local res, err = hp:request("127.0.0.1", 9090, {
-                                     method = "GET", path = "/echo",
-                                     stream = httpipe.FULL })
-      if not res then
+      local ok, err = hp:connect("127.0.0.1", 9090)
+      if not ok then
+          ngx.log(ngx.ERR, "failed to connect: ", err)
+          return ngx.exit(503)
+      end
+
+      local ok, err = hp:request_start{ method = "GET", path = "/echo" }
+      if not ok then
           ngx.log(ngx.ERR, "failed to request: ", err)
           return ngx.exit(503)
       end
@@ -110,14 +114,13 @@ server {
   location /advanced {
     content_by_lua '
       local httpipe = require "resty.httpipe"
-
       local h0, err = httpipe:new()
 
       h0:set_timeout(5 * 1000) -- 5 sec
 
       local r0, err = h0:request("127.0.0.1", 9090, {
                                      method = "GET", path = "/echo",
-                                     stream = httpipe.BODY })
+                                     stream = true })
 
       -- from one http stream to another, just like a unix pipe
 
@@ -132,7 +135,7 @@ server {
       local r1, err = h1:request("127.0.0.1", 9090, {
                                      method = "POST", path = "/echo",
                                      headers = headers,
-                                     body = function () return h0:read_body() end })
+                                     body = r0.body_reader })
 
       ngx.status = r1.status
 
@@ -162,7 +165,7 @@ A typical output of the `/generic` location defined above is:
 ```
 read: ["statusline","200"]
 read: ["header",["Server","openresty\/1.5.12.1","Server: openresty\/1.5.12.1"]]
-read: ["header",["Date","Sat, 07 Jun 2014 07:52:06 GMT","Date: Sat, 07 Jun 2014 07:52:06 GMT"]]
+read: ["header",["Date","Tue, 10 Jun 2014 07:29:57 GMT","Date: Tue, 10 Jun 2014 07:29:57 GMT"]]
 read: ["header",["Content-Type","text\/plain","Content-Type: text\/plain"]]
 read: ["header",["Connection","keep-alive","Connection: keep-alive"]]
 read: ["header",["Content-Length","84","Content-Length: 84"]]
@@ -201,11 +204,26 @@ Accept: */*
 
 ## new
 
-`syntax: hp, err = httpipe:new(chunk_size?)`
+`syntax: hp, err = httpipe:new(chunk_size?, sock?)`
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
 The argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
+
+## connect
+
+`syntax: ok, err = hp:connect(host, port, options_table?)`
+
+`syntax: ok, err = hp:connect("unix:/path/to/unix.sock", options_table?)`
+
+Attempts to connect to the web server.
+
+Before actually resolving the host name and connecting to the remote backend, this method will always look up the connection pool for matched idle connections created by previous calls of this method.
+
+An optional Lua table can be specified as the last argument to this method to specify various connect options:
+
+* `pool`
+: Specifies a custom name for the connection pool being used. If omitted, then the connection pool name will be generated from the string template `<host>:<port>` or `<unix-socket-path>`.
 
 ## set_timeout
 
@@ -244,6 +262,12 @@ In case of success, returns `1`. In case of errors, returns `nil` with a string 
 
 # Requesting
 
+## request_start
+
+`syntax: ok, err = hp:request_start(opts?)`
+
+In case of errors, returns nil with a string describing the error.
+
 ## request
 
 `syntax: res, err = hp:request(host, port, opts?)`
@@ -252,18 +276,17 @@ In case of success, returns `1`. In case of errors, returns `nil` with a string 
 
 The `opts` table accepts the following fields:
 
-* `version`: Sets the HTTP version. Use `0` for HTTP/1.0 and `1` for HTTP/1.1. Defaults to `1`.
+* `version`: Sets the HTTP version. Use `1.0` for HTTP/1.0 and `1.1` for HTTP/1.1. Defaults to `1.1`.
 * `method`: The HTTP method string. Defaults to `GET`.
 * `path`: The path string. Default to `/`.
 * `query`: Specifies query parameters. Accepts either a string or a Lua table.
 * `headers`: A table of request headers. Accepts a Lua table.
 * `body`: The request body as a string, or an iterator function.
-* `timeout`: Sets the timeout in milliseconds for network operations. Defaults to `5000`.
 * `read_timeout`: Sets the timeout in milliseconds for network read operations specially.
 * `send_timeout`: Sets the timeout in milliseconds for network send operations specially.
-* `stream`: Specifies special stream mode, `FULL` and `BODY` is currently optional.
+* `stream`: If set to `true`, return an iterable `res.body_reader` object instead of `res.body`.
 
-Returns a `res` object containing four attributes:
+When the request is successful, `res` will contain the following fields:
 
 * `res.status` (number)
 : The resonse status, e.g. 200
@@ -271,18 +294,36 @@ Returns a `res` object containing four attributes:
 : A Lua table with response headers.
 * `res.body` (string)
 : The plain response body.
-* `res.eof` (int)
-: If `res.eof` is `true` indicate already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
+* `body_reader` (function)
+:An iterator function for reading the body in a streaming fashion.
+* `res.eof` (boolean)
+: a boolean flag indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
 **Note** All headers (request and response) are noramlized for
 capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
 normal HTTP "standard."
 
-If the stream specified as `FULL` mode, res is always a empty Lua table. You need to use `hp:response` or `hp:read` method to parse the full response specially.
-
-If the stream specified as `BODY` mode, res containing the parsed `status` and `headers`. You also need to use `hp:read_body` method to read the response body specially.
-
 In case of errors, returns nil with a string describing the error.
+
+## res.body_reader
+
+The `body_reader` iterator can be used to stream the response body in chunk sizes of your choosing, as follows:
+
+````lua
+local reader = res.body_reader
+
+repeat
+  local chunk, err = reader(8192)
+  if err then
+    ngx.log(ngx.ERR, err)
+    break
+  end
+
+  if chunk then
+    -- process
+  end
+until not chunk
+````
 
 ## response
 
@@ -311,9 +352,9 @@ local res, err = hp:response{
 }
 ````
 
-**Note** When `return 1	` in callback function，filter process will be interrupted.
+Returns a res object as same as `hp:request` method.
 
-Returns a res object containing four attributes, as same as `hp:request` method.
+**Note** When `return 1	` in callback function，filter process will be interrupted.
 
 In case of errors, returns nil with a string describing the error.
 
@@ -327,13 +368,40 @@ The user just needs to call the read method repeatedly until a nil token type is
 
 In case of errors, returns nil with a string describing the error.
 
-## read_body
+# Utility
 
-`syntax: local chunk, err = hp:read_body()`
+## get_client_body_reader
 
-Streaming reader for the response body.
+`syntax: reader, err = hp:get_client_body_reader(chunk_size?)`
 
-In case of success, it returns the data received; in case of error, it returns nil with a string describing the error.
+Returns an iterator function which can be used to read the downstream client request body in a streaming fashion. For example:
+
+```lua
+local req_reader = hp:get_client_body_reader()
+
+repeat
+  local chunk, err = req_reader(8192)
+  if err then
+    ngx.log(ngx.ERR, err)
+    break
+  end
+
+  if chunk then
+    -- process
+  end
+until not chunk
+```
+
+This iterator can also be used as the value for the body field in request params, allowing one to stream the request body into a proxied upstream request.
+
+```lua
+local client_body_reader, err = hp:get_client_body_reader()
+
+local res, err = hp:request{
+   path = "/helloworld",
+   body = client_body_reader,
+}
+```
 
 # Author
 
@@ -341,7 +409,7 @@ Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
 Originally started life based on https://github.com/bakins/lua-resty-http-simple.
 
-The part of the interface design inspired from https://github.com/agentzh/lua-resty-upload.
+The part of the interface design inspired from https://github.com/pintsized/lua-resty-http.
 
 Cosocket docs and implementation borrowed from the other lua-resty-* cosocket modules.
 

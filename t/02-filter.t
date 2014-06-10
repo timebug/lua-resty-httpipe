@@ -30,11 +30,12 @@ __DATA__
 
             hp:set_timeout(5000)
 
-            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local ok, err = hp:connect("127.0.0.1", ngx.var.server_port)
+
+            local ok, err = hp:request_start{
                 method = "GET",
                 path = "/b",
-                stream = httpipe.FULL
-            })
+            }
 
             local res, err = hp:response{
                 header_filter = function (status, headers)
@@ -79,7 +80,7 @@ OK
             local r0, err = h0:request("127.0.0.1", ngx.var.server_port, {
                 method = "GET",
                 path = "/b",
-                stream = httpipe.BODY
+                stream = true
             })
 
             local h1 = httpipe:new()
@@ -94,7 +95,7 @@ OK
                 method = "POST",
                 path = "/c",
                 headers = headers,
-                body = function () return h0:read_body() end
+                body = r0.body_reader
             })
 
             ngx.status = r1.status
@@ -123,7 +124,7 @@ OK
                 end
                 ngx.print(table.concat(t))
              else
-                ngx.log(ngx.ERROR, "failed")
+                ngx.log(ngx.ERR, "failed")
              end
         ';
     }

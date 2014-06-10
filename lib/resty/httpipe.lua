@@ -20,10 +20,11 @@ local insert = table.insert
 local setmetatable = setmetatable
 local escape_uri = ngx.escape_uri
 local encode_args = ngx.encode_args
--- local print = print
+local ngx_req_socket = ngx.req.socket
+local ngx_req_get_headers = ngx.req.get_headers
 
 
-local _M = { _VERSION = "0.04", FULL = 1, BODY = 2 }
+local _M = { _VERSION = "0.04" }
 
 --------------------------------------
 -- LOCAL CONSTANTS                  --
@@ -31,8 +32,10 @@ local _M = { _VERSION = "0.04", FULL = 1, BODY = 2 }
 
 local mt = { __index = _M }
 
-local HTTP_1_1 = " HTTP/1.1\r\n"
-local HTTP_1_0 = " HTTP/1.0\r\n"
+local HTTP = {
+    [1.1] = " HTTP/1.1\r\n",
+    [1.0] = " HTTP/1.0\r\n"
+}
 
 local USER_AGENT = "Resty/HTTPipe-" .. _M._VERSION
 
@@ -91,12 +94,12 @@ end
 
 
 local function req_header(self, opts)
+    self.method = upper(opts.method or "GET")
+
     local req = {
-        upper(opts.method or "GET"),
+        self.method,
         " "
     }
-
-    self.method = upper(opts.method)
 
     local path = opts.path
     if type(path) ~= "string" then
@@ -114,11 +117,7 @@ local function req_header(self, opts)
         insert(req, "?" .. opts.query)
     end
 
-    if opts.version == 1 then
-        insert(req, HTTP_1_1)
-    else
-        insert(req, HTTP_1_0)
-    end
+    insert(req, HTTP[opts.version])
 
     opts.headers = opts.headers or {}
 
@@ -137,7 +136,7 @@ local function req_header(self, opts)
     end
 
     if not headers['Host'] then
-        headers['Host'] = opts.host
+        headers['Host'] = self.host
     end
 
     if not headers['User-Agent'] then
@@ -173,26 +172,25 @@ end
 -- HTTP PIPE FUNCTIONS              --
 --------------------------------------
 
--- local hp, err = _M:new(chunk_size?)
-function _M.new(self, chunk_size)
+-- local hp, err = _M:new(chunk_size?, sock?)
+function _M.new(self, chunk_size, sock)
     local state = STATE_NOT_READY
 
-    local sock, err = tcp()
     if not sock then
-        return nil, err
+        local s, err = tcp()
+        if not s then
+            return nil, err
+        end
+        sock = s
     end
 
     return setmetatable({
         sock = sock,
         size = chunk_size or 8192,
         state = state,
-        read_line = nil,
-        read_timeout = nil,
-        datalen = 0,
         chunked = false,
         keepalive = true,
-        method = nil,
-        eof = nil,
+        eof = false,
     }, mt)
 end
 
@@ -204,9 +202,21 @@ function _M.set_timeout(self, time)
         return nil, "not initialized"
     end
 
-    sock:settimeout(time)
+    return sock:settimeout(time)
+end
 
-    return 1
+
+-- local ok, err = _M:connect(self, host, port, opts?)
+-- local ok, err = _M:connect("unix:/path/to/unix-domain.socket", opts?)
+function _M.connect(self, ...)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    self.host = select(1, ...)
+
+    return sock:connect(...)
 end
 
 
@@ -232,7 +242,8 @@ local function read_body_part(self)
     local datalen = self.datalen
     local size = self.size
 
-    if self.chunked == true and datalen == 0 then
+    if self.chunked == true and
+    (datalen == nil or datalen == 0) then
         local read_line = self.read_line
         local data, err = read_line()
 
@@ -268,7 +279,7 @@ local function read_body_part(self)
         return 'body_end', nil
     end
 
-    if datalen < size then
+    if datalen ~= nil and datalen < size then
         size = datalen
     end
 
@@ -282,9 +293,11 @@ local function read_body_part(self)
     elseif err == "closed" then
         self.state = STATE_EOF
         if partial then
-            self.datalen = datalen - #partial
-            if self.datalen ~= 0 then
-                return nil, nil, err
+            if datalen ~= nil then
+                self.datalen = datalen - #partial
+                if self.datalen ~= 0 then
+                    return nil, nil, err
+                end
             end
             return 'body', partial
         else
@@ -294,7 +307,9 @@ local function read_body_part(self)
         return nil, nil, err
     end
 
-    self.datalen = datalen - size
+    if datalen ~= nil then
+        self.datalen = datalen - size
+    end
 
     return 'body', data
 end
@@ -380,7 +395,7 @@ function _M.set_keepalive(self, ...)
         return nil, "not initialized"
     end
 
-    self.eof = 1
+    self.eof = true
 
     if self.keepalive then
         return sock:setkeepalive(...)
@@ -408,23 +423,27 @@ function _M.close(self)
         return nil, "not initialized"
     end
 
-    self.eof = 1
+    self.eof = true
 
     return sock:close()
 end
 
 
 local function eof(self)
-    _M.set_keepalive(self)
+    self:set_keepalive()
     return 'eof', nil
 end
 
 
--- local typ, res, err = _M:read()
-function _M.read(self)
+-- local typ, res, err = _M:read(chunk_size?)
+function _M.read(self, chunk_size)
     local sock = self.sock
     if not sock then
         return nil, nil, "not initialized"
+    end
+
+    if chunk_size then
+        self.size = chunk_size
     end
 
     if self.state == STATE_NOT_READY then
@@ -441,34 +460,6 @@ function _M.read(self)
     end
 
     return nil, nil, "bad state: " .. self.state
-end
-
-
--- local chunk, err = _M:read_body()
-function _M.read_body(self)
-    local sock = self.sock
-    if not sock then
-        return nil, "not initialized"
-    end
-
-    if self.state < STATE_READING_BODY then
-        return nil, "not ready for reading body"
-    end
-
-    local typ, res, err = _M.read(self)
-    if not typ then
-        return nil, err
-    end
-
-    if typ == 'body' then
-        return res
-    end
-
-    if typ == 'body_end' then
-        _M.eof(self)
-    end
-
-    return -- eof
 end
 
 
@@ -497,7 +488,7 @@ function _M.response(self, ...)
     local chunks = {}
 
     while not self.eof do
-        local typ, res, err = _M.read(self)
+        local typ, res, err = self:read()
         if not typ then
             return nil, err
         end
@@ -538,6 +529,82 @@ function _M.response(self, ...)
 end
 
 
+-- local ok, err = _M:request_start(opts?)
+function _M.request_start(self, opts)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    if opts.send_timeout then
+        sock:settimeout(opts.send_timeout)
+    end
+
+    if opts.read_timeout then
+        self.read_timeout = opts.read_timeout
+    end
+
+    if opts.version and not HTTP[opts.version] then
+        return nil, "unknown HTTP version"
+    else
+        opts.version = 1.1
+    end
+
+    local req, headers = req_header(self, opts)
+    local bytes, err = sock:send(req)
+    if not bytes then
+        return nil, err
+    end
+
+    if type(opts.body) == "string" then
+        local bytes, err = sock:send(opts.body)
+        if not bytes then
+            return nil, err
+        end
+    end
+
+    if type(opts.body) == "function" then
+        repeat
+            local chunk, err = opts.body()
+            if chunk then
+                local bytes, err = sock:send(chunk)
+                if not bytes then
+                    return nil, err
+                end
+            elseif err then
+                return nil, err
+            end
+        until chunk == nil
+    end
+
+    self.state = STATE_BEGIN
+
+    return 1
+end
+
+
+local function get_body_reader(self, close)
+    return function (chunk_size)
+        local typ, res, err = self:read(chunk_size)
+        if not typ then
+            return nil, err
+        end
+
+        if typ == 'body' then
+            return res
+        end
+
+        if typ == 'body_end' then
+            if close then
+                eof(self)
+            end
+        end
+
+        return
+    end
+end
+
+
 -- local res, err = _M:request(host, port, opts?)
 -- local res, err = _M:request("unix:/path/to/unix-domain.socket", opts?)
 function _M.request(self, ...)
@@ -559,75 +626,51 @@ function _M.request(self, ...)
         arguments[n] = nil
     end
 
-    opts.host = arguments[1]
-
-    sock:settimeout(opts.timeout or 5000)
+    self.host = arguments[1]
 
     local rc, err = sock:connect(unpack(arguments))
     if not rc then
         return nil, err
     end
 
-    if opts.send_timeout then
-        sock:settimeout(opts.send_timeout)
-    end
-
-    if opts.read_timeout then
-        self.read_timeout = opts.read_timeout
-    end
-
-    local version = opts.version
-    if version then
-        if version ~= 0 and version ~= 1 then
-            return nil, "unknown HTTP version"
-        end
-    else
-        opts.version = 1
-    end
-
-    local reqstr, headers = req_header(self, opts)
-    local bytes, err = sock:send(reqstr)
-    if not bytes then
+    local ok, err = self:request_start(opts)
+    if not ok then
         return nil, err
     end
 
-    if type(opts.body) == "string" then
-        local bytes, err = sock:send(opts.body)
-        if not bytes then
-            return nil, err
-        end
-    end
-
-    if type(opts.body) == "function" then
-        local datalen = tonumber(headers["Content-Length"]) or 0
-        while datalen > 0 do
-            local chunk = opts.body()
-            if not chunk then
-                break
-            end
-
-            datalen = datalen - #chunk
-
-            local bytes, err = sock:send(chunk)
-            if not bytes then
-                return nil, err
-            end
-        end
-    end
-
-    self.state = STATE_BEGIN
-
-    if opts.stream == _M.FULL then
-        return {}
-    end
-
-    return _M.response(self, {
+    local res, err = self:response{
         header_filter = function (status, headers)
-            if opts.stream == _M.BODY then
-                return 1
-            end
+            return opts.stream
         end
-    })
+    }
+
+    local body_reader = get_body_reader(self, true)
+
+    if res and opts.stream then
+        res.body_reader = body_reader
+    end
+
+    return res, err
+end
+
+
+-- local reader, err = _M:get_client_body_reader(chunk_size?)
+function _M.get_client_body_reader(self, chunk_size)
+    local sock, err = ngx_req_socket()
+
+    if not sock then
+        return nil, err
+    end
+
+    local hp = self:new(chunk_size, sock)
+    local headers = ngx_req_get_headers()
+
+    hp.datalen = tonumber(headers["Content-Length"])
+    hp.chunk = headers["Transfer-Encoding"] == 'chunked'
+
+    hp.state = STATE_READING_BODY
+
+    return get_body_reader(hp)
 end
 
 
