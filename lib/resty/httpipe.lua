@@ -9,6 +9,7 @@ local rawset = rawset
 local rawget = rawget
 local sub = string.sub
 local gsub = string.gsub
+local find = string.find
 local tostring = tostring
 local tonumber = tonumber
 local tcp = ngx.socket.tcp
@@ -18,6 +19,7 @@ local lower = string.lower
 local concat = table.concat
 local insert = table.insert
 local setmetatable = setmetatable
+local ngx_re_match = ngx.re.match
 local escape_uri = ngx.escape_uri
 local encode_args = ngx.encode_args
 local ngx_req_socket = ngx.req.socket
@@ -165,6 +167,30 @@ local function req_header(self, opts)
     insert(req, "\r\n")
 
     return concat(req), headers
+end
+
+
+-- local scheme, host, port, path, args = unpack(_M:parse_uri(uri))
+function _M.parse_uri(self, uri)
+    local r = [[^(http[s]*)://([^:/]+)(?::(\d+))?(.*)]]
+    local m, err = ngx_re_match(uri, r, "jo")
+    if not m then
+        return nil, err or "bad uri"
+    end
+
+    if not m[3] then m[3] = 80 end
+    if not m[4] then
+        m[4] = "/"
+    else
+        local raw = m[4]
+        local from = find(raw, "?")
+        if from then
+            m[4] = raw:sub(1, from - 1) -- path
+            m[5] = raw:sub(from + 1)    -- args
+        end
+    end
+
+    return m
 end
 
 
@@ -651,6 +677,30 @@ function _M.request(self, ...)
     end
 
     return res, err
+end
+
+
+-- local res, err = _M:request_uri(uri, opts?)
+function _M.request_uri(self, uri, opts)
+    if not opts then
+        opts = {}
+    end
+
+    local parsed_uri, err = self:parse_uri(uri)
+    if not parsed_uri then
+        return nil, err
+    end
+
+    local scheme, host, port, path, args = unpack(parsed_uri)
+    if not opts.path then
+        opts.path = path
+    end
+
+    if not opts.query then
+        opts.query = args
+    end
+
+    return self:request(host, port, opts)
 end
 
 

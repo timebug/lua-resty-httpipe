@@ -325,6 +325,16 @@ repeat
 until not chunk
 ````
 
+## request_uri
+
+`syntax: res, err = hp:request_uri(uri, opts?)`
+
+The simple interface. Options supplied in the `opts` table are the same as in the generic interface, and will override components found in the uri itself.
+
+Returns a res object as same as `hp:request` method.
+
+In case of errors, returns nil with a string describing the error.
+
 ## response
 
 `syntax: local res, err = hp:response(callback?)`
@@ -369,6 +379,12 @@ The user just needs to call the read method repeatedly until a nil token type is
 In case of errors, returns nil with a string describing the error.
 
 # Utility
+
+## parse_uri
+
+`syntax: local scheme, host, port, path, args = unpack(hp:parse_uri(uri))`
+
+This is a convenience function allowing one to more easily use the generic interface, when the input data is a URI.
 
 ## get_client_body_reader
 
