@@ -305,6 +305,16 @@ normal HTTP "standard."
 
 In case of errors, returns nil with a string describing the error.
 
+## request_uri
+
+`syntax: res, err = hp:request_uri(uri, opts?)`
+
+The simple interface. Options supplied in the `opts` table are the same as in the generic interface, and will override components found in the uri itself.
+
+Returns a res object as same as `hp:request` method.
+
+In case of errors, returns nil with a string describing the error.
+
 ## res.body_reader
 
 The `body_reader` iterator can be used to stream the response body in chunk sizes of your choosing, as follows:
@@ -324,16 +334,6 @@ repeat
   end
 until not chunk
 ````
-
-## request_uri
-
-`syntax: res, err = hp:request_uri(uri, opts?)`
-
-The simple interface. Options supplied in the `opts` table are the same as in the generic interface, and will override components found in the uri itself.
-
-Returns a res object as same as `hp:request` method.
-
-In case of errors, returns nil with a string describing the error.
 
 ## response
 
