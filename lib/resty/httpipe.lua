@@ -497,8 +497,8 @@ state_handlers = {
 }
 
 
--- local res, err = _M:response(callback?)
-function _M.response(self, ...)
+-- local res, err = _M:read_response(callback?)
+function _M.read_response(self, ...)
     local sock = self.sock
     if not sock then
         return nil, "not initialized"
@@ -555,8 +555,8 @@ function _M.response(self, ...)
 end
 
 
--- local ok, err = _M:request_start(opts?)
-function _M.request_start(self, opts)
+-- local ok, err = _M:send_request(opts?)
+function _M.send_request(self, opts)
     local sock = self.sock
     if not sock then
         return nil, "not initialized"
@@ -631,6 +631,7 @@ local function get_body_reader(self, close)
 end
 
 
+-- local res, err = _M:request(opts?)
 -- local res, err = _M:request(host, port, opts?)
 -- local res, err = _M:request("unix:/path/to/unix-domain.socket", opts?)
 function _M.request(self, ...)
@@ -642,8 +643,9 @@ function _M.request(self, ...)
     local arguments = {...}
 
     local n = #arguments
-    if n ~= 1 and n ~= 2 and n ~= 3 then
-        return nil, "expecting 1, 2, or 3 arguments, but seen " .. tostring(n)
+    if n > 3 then
+        return nil, "expecting 0, 1, 2, or 3 arguments, but seen " ..
+            tostring(n)
     end
 
     local opts = {}
@@ -652,19 +654,20 @@ function _M.request(self, ...)
         arguments[n] = nil
     end
 
-    self.host = arguments[1]
-
-    local rc, err = sock:connect(unpack(arguments))
-    if not rc then
-        return nil, err
+    if n > 0 and arguments[1] then
+        self.host = arguments[1]
+        local rc, err = sock:connect(unpack(arguments))
+        if not rc then
+            return nil, err
+        end
     end
 
-    local ok, err = self:request_start(opts)
+    local ok, err = self:send_request(opts)
     if not ok then
         return nil, err
     end
 
-    local res, err = self:response{
+    local res, err = self:read_response{
         header_filter = function (status, headers)
             return opts.stream
         end

@@ -32,12 +32,12 @@ __DATA__
 
             local ok, err = hp:connect("127.0.0.1", ngx.var.server_port)
 
-            local ok, err = hp:request_start{
+            local ok, err = hp:send_request{
                 method = "GET",
                 path = "/b",
             }
 
-            local res, err = hp:response{
+            local res, err = hp:read_response{
                 header_filter = function (status, headers)
                     headers["X-Test-A"] = nil
                 end

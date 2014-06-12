@@ -87,9 +87,9 @@ server {
           return ngx.exit(503)
       end
 
-      local ok, err = hp:request_start{ method = "GET", path = "/echo" }
+      local ok, err = hp:send_request{ method = "GET", path = "/echo" }
       if not ok then
-          ngx.log(ngx.ERR, "failed to request: ", err)
+          ngx.log(ngx.ERR, "failed to send request: ", err)
           return ngx.exit(503)
       end
 
@@ -262,13 +262,9 @@ In case of success, returns `1`. In case of errors, returns `nil` with a string 
 
 # Requesting
 
-## request_start
-
-`syntax: ok, err = hp:request_start(opts?)`
-
-In case of errors, returns nil with a string describing the error.
-
 ## request
+
+`syntax: res, err = hp:request(opts?)`
 
 `syntax: res, err = hp:request(host, port, opts?)`
 
@@ -335,16 +331,22 @@ repeat
 until not chunk
 ````
 
-## response
+## send_request
 
-`syntax: local res, err = hp:response(callback?)`
+`syntax: ok, err = hp:send_request(opts?)`
+
+In case of errors, returns nil with a string describing the error.
+
+## read_response
+
+`syntax: local res, err = hp:read_response(callback?)`
 
 The `callback` table accepts the following fields:
 
 * `header_filter`: A callback function for response headers filter
 
 ````lua
-local res, err = hp:response{
+local res, err = hp:read_response{
     header_filter = function (status, headers)
         if status == 200 then
         	return 1
@@ -355,7 +357,7 @@ end }
 * `body_filter`: A callback function for response body filter
 
 ````lua
-local res, err = hp:response{
+local res, err = hp:read_response{
     body_filter = function (chunk)
         ngx.print(chunk)
     end
@@ -364,7 +366,7 @@ local res, err = hp:response{
 
 Returns a res object as same as `hp:request` method.
 
-**Note** When `return 1	` in callback function，filter process will be interrupted.
+**Note** When return true in callback function，filter process will be interrupted.
 
 In case of errors, returns nil with a string describing the error.
 

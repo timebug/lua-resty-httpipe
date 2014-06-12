@@ -192,3 +192,35 @@ GET /a
 --- no_error_log
 [error]
 [warn]
+
+
+=== TEST 6: Request without connect.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local ok, err = hp:connect("127.0.0.1", ngx.var.server_port)
+
+            local res, err = hp:request{
+                method = "GET",
+                path = "/b"
+            }
+
+            ngx.print(res.body)
+        ';
+    }
+    location = /b {
+        echo "OK";
+    }
+--- request
+GET /a
+--- response_body
+OK
+--- no_error_log
+[error]
+[warn]
