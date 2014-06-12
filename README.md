@@ -290,7 +290,7 @@ When the request is successful, `res` will contain the following fields:
 : A Lua table with response headers.
 * `res.body` (string)
 : The plain response body.
-* `body_reader` (function)
+* `res.body_reader` (function)
 :An iterator function for reading the body in a streaming fashion.
 * `res.eof` (boolean)
 : a boolean flag indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
