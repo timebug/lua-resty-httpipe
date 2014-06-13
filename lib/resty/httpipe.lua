@@ -212,7 +212,8 @@ function _M.new(self, chunk_size, sock)
 
     return setmetatable({
         sock = sock,
-        size = chunk_size or 8192,
+        chunk_size = chunk_size or 8192,
+        total_size = 0,
         state = state,
         chunked = false,
         keepalive = true,
@@ -265,11 +266,15 @@ local function read_body_part(self)
     end
 
     local sock = self.sock
-    local datalen = self.datalen
-    local size = self.size
+    local remaining = self.remaining
+    local chunk_size = self.chunk_size
+
+    if self.maxsize and remaining and remaining > self.maxsize then
+        return nil, nil, "exceeds maxsize"
+    end
 
     if self.chunked == true and
-    (datalen == nil or datalen == 0) then
+    (remaining == nil or remaining == 0) then
         local read_line = self.read_line
         local data, err = read_line()
 
@@ -295,21 +300,21 @@ local function read_body_part(self)
                 return 'body_end', nil
             else
                 local length = tonumber(data, 16)
-                datalen = length
+                remaining = length
             end
         end
     end
 
-    if datalen == 0 then
+    if remaining == 0 then
         self.state = STATE_EOF
         return 'body_end', nil
     end
 
-    if datalen ~= nil and datalen < size then
-        size = datalen
+    if remaining ~= nil and remaining < chunk_size then
+        chunk_size = remaining
     end
 
-    local chunk, err, partial = sock:receive(size)
+    local chunk, err, partial = sock:receive(chunk_size)
 
     local data = ""
     if not err then
@@ -319,13 +324,12 @@ local function read_body_part(self)
     elseif err == "closed" then
         self.state = STATE_EOF
         if partial then
-            if datalen ~= nil then
-                self.datalen = datalen - #partial
-                if self.datalen ~= 0 then
-                    return nil, nil, err
-                end
+            chunk_size = #partial
+            if remaining and remaining - chunk_size ~= 0 then
+                return nil, partial, err
             end
-            return 'body', partial
+
+            data = partial
         else
             return 'body_end', nil
         end
@@ -333,8 +337,13 @@ local function read_body_part(self)
         return nil, nil, err
     end
 
-    if datalen ~= nil then
-        self.datalen = datalen - size
+    if remaining ~= nil then
+        self.remaining = remaining - chunk_size
+        self.total_size = self.total_size + chunk_size
+
+        if self.maxsize and self.total_size > self.maxsize then
+            return nil, nil, "exceeds maxsize"
+        end
     end
 
     return 'body', data
@@ -361,7 +370,7 @@ local function read_header_part(self)
 
     local vname = lower(name)
     if vname == "content-length" then
-        self.datalen = tonumber(value)
+        self.remaining = tonumber(value)
     end
 
     if vname == "transfer-encoding" and value ~= "identity" then
@@ -469,7 +478,7 @@ function _M.read(self, chunk_size)
     end
 
     if chunk_size then
-        self.size = chunk_size
+        self.chunk_size = chunk_size
     end
 
     if self.state == STATE_NOT_READY then
@@ -603,6 +612,7 @@ function _M.send_request(self, opts)
         until chunk == nil
     end
 
+    self.maxsize = opts.maxsize
     self.state = STATE_BEGIN
 
     return 1
@@ -718,7 +728,7 @@ function _M.get_client_body_reader(self, chunk_size)
     local hp = self:new(chunk_size, sock)
     local headers = ngx_req_get_headers()
 
-    hp.datalen = tonumber(headers["Content-Length"])
+    hp.remaining = tonumber(headers["Content-Length"])
     hp.chunk = headers["Transfer-Encoding"] == 'chunked'
 
     hp.state = STATE_READING_BODY
