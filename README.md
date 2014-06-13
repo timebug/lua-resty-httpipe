@@ -129,6 +129,13 @@ server {
 
       pipe:set_timeout(5 * 1000) -- 5 sec
 
+      --[[
+          local headers = {["Content-Length"] = r0.headers["Content-Length"]}
+          local r1, err = pipe:request("127.0.0.1", 9090, {
+                                           method = "POST", path = "/echo",
+                                           headers = headers,
+                                           body = r0.body_reader })
+      --]]
       local r1, err = pipe:request("127.0.0.1", 9090, {
                                        method = "POST", path = "/echo" })
 
