@@ -26,12 +26,12 @@ __DATA__
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
-	        local len = 1024 * 1024
-	        ngx.header.content_length = len
-	        local t = {}
-	        for i=1,len do
-	            t[i] = 0
-    	    end
+            local len = 1024 * 1024
+            ngx.header.content_length = len
+            local t = {}
+            for i=1,len do
+                t[i] = 0
+            end
             ngx.print(table.concat(t))
         ';
     }
@@ -43,12 +43,12 @@ __DATA__
 
             hp:set_timeout(5000)
 
-	        local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024
             })
 
-	        ngx.say(err)
+            ngx.say(err)
         ';
     }
 --- request
@@ -66,11 +66,11 @@ exceeds maxsize
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
-	        local len = 1024 * 1024
-	        local t = {}
-	        for i=1,len do
-	            t[i] = 0
-    	    end
+            local len = 1024 * 1024
+            local t = {}
+            for i=1,len do
+                t[i] = 0
+            end
             ngx.print(table.concat(t))
         ';
     }
@@ -82,12 +82,12 @@ exceeds maxsize
 
             hp:set_timeout(5000)
 
-	        local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024
             })
 
-	        ngx.say(err)
+            ngx.say(err)
         ';
     }
 --- request
@@ -106,11 +106,11 @@ exceeds maxsize
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
-	        local len = 1024 * 1024
-	        local t = {}
-	        for i=1,len do
-	            t[i] = 0
-    	    end
+            local len = 1024 * 1024
+            local t = {}
+            for i=1,len do
+                t[i] = 0
+            end
             ngx.print(table.concat(t))
         ';
     }
@@ -122,13 +122,13 @@ exceeds maxsize
 
             hp:set_timeout(5000)
 
-	        local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024,
                 version = 1.0
             })
 
-	        ngx.say(err)
+            ngx.say(err)
         ';
     }
 --- request
@@ -146,11 +146,11 @@ exceeds maxsize
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
-	        local len = 1023
-	        local t = {}
-	        for i=1,len do
-	            t[i] = "a"
-    	    end
+            local len = 1023
+            local t = {}
+            for i=1,len do
+                t[i] = "a"
+            end
             ngx.print(table.concat(t))
         ';
     }
@@ -162,14 +162,14 @@ exceeds maxsize
 
             hp:set_timeout(5000)
 
-	        local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024,
                 version = 1.0
             })
 
-	        ngx.say(err)
-	        ngx.say(#res.body)
+            ngx.say(err)
+            ngx.say(#res.body)
         ';
     }
 --- request
