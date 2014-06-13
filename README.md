@@ -114,28 +114,23 @@ server {
   location /advanced {
     content_by_lua '
       local httpipe = require "resty.httpipe"
-      local h0, err = httpipe:new()
 
-      h0:set_timeout(5 * 1000) -- 5 sec
+      local hp, err = httpipe:new()
 
-      local r0, err = h0:request("127.0.0.1", 9090, {
+      hp:set_timeout(5 * 1000) -- 5 sec
+
+      local r0, err = hp:request("127.0.0.1", 9090, {
                                      method = "GET", path = "/echo",
                                      stream = true })
 
       -- from one http stream to another, just like a unix pipe
 
-      local h1, err = httpipe:new()
+      local pipe = r0.pipe
 
-      h1:set_timeout(5 * 1000) -- 5 sec
+      pipe:set_timeout(5 * 1000) -- 5 sec
 
-      local headers = {
-          ["Content-Length"] = r0.headers["Content-Length"]
-      }
-
-      local r1, err = h1:request("127.0.0.1", 9090, {
-                                     method = "POST", path = "/echo",
-                                     headers = headers,
-                                     body = r0.body_reader })
+      local r1, err = pipe:request("127.0.0.1", 9090, {
+                                       method = "POST", path = "/echo" })
 
       ngx.status = r1.status
 
@@ -293,6 +288,8 @@ When the request is successful, `res` will contain the following fields:
 : The plain response body.
 * `res.body_reader` (function)
 :An iterator function for reading the body in a streaming fashion.
+* `res.pipe` (httpipe object)
+: A new httpipe object which use the current `res.body_reader` as input body by default.
 * `res.eof` (boolean)
 : a boolean flag indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
@@ -365,7 +362,7 @@ local res, err = hp:read_response{
 }
 ````
 
-Returns a res object as same as `hp:request` method.
+Additionally there is no ability to stream the response body in this method. If the response is successful, res will contain the following fields: `res.status`, `res.headers`, `res.body`, `res.eof`.
 
 **Note** When return true in callback function，filter process will be interrupted.
 

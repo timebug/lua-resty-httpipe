@@ -134,7 +134,8 @@ local function req_header(self, opts)
     end
 
     if self.method == "PUT" or self.method == "POST" then
-        headers['Content-Length'] = tonumber(headers['Content-Length']) or 0
+        local size = tonumber(headers['Content-Length'])
+        headers['Content-Length'] = size or self.previous.content_length or 0
     end
 
     if not headers['Host'] then
@@ -218,6 +219,7 @@ function _M.new(self, chunk_size, sock)
         chunked = false,
         keepalive = true,
         eof = false,
+        previous = {},
     }, mt)
 end
 
@@ -596,9 +598,7 @@ function _M.send_request(self, opts)
         if not bytes then
             return nil, err
         end
-    end
-
-    if type(opts.body) == "function" then
+    elseif type(opts.body) == "function" then
         repeat
             local chunk, err = opts.body()
             if chunk then
@@ -609,7 +609,7 @@ function _M.send_request(self, opts)
             elseif err then
                 return nil, err
             end
-        until chunk == nil
+        until not chunk
     end
 
     self.maxsize = opts.maxsize
@@ -672,8 +672,14 @@ function _M.request(self, ...)
         end
     end
 
+    local prev = self.previous.pipe
+    if self.previous.body_reader then
+        opts.body = self.previous.body_reader
+    end
+
     local ok, err = self:send_request(opts)
     if not ok then
+        if prev then prev:close() end
         return nil, err
     end
 
@@ -687,6 +693,20 @@ function _M.request(self, ...)
 
     if res and opts.stream then
         res.body_reader = body_reader
+
+        local size = tonumber(res.headers["Content-Length"]) or 0
+        if size > 0 then
+            local pipe, err = self:new(self.chunk_size)
+            if not pipe then
+                return nil, err
+            end
+
+            pipe.previous.pipe = self
+            pipe.previous.content_length = size
+            pipe.previous.body_reader = body_reader
+
+            res.pipe = pipe
+        end
     end
 
     return res, err

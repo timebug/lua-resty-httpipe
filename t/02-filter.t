@@ -135,3 +135,67 @@ GET /a
 --- no_error_log
 [error]
 [warn]
+
+
+=== TEST 3: HTTP Pipe.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new(5)
+
+            hp:set_timeout(5000)
+
+            local r0, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b",
+                stream = true
+            })
+
+            local pipe = r0.pipe
+
+            pipe:set_timeout(5000)
+
+            local r1, err = pipe:request("127.0.0.1", ngx.var.server_port, {
+                method = "POST",
+                path = "/c"
+            })
+
+            ngx.status = r1.status
+            ngx.say(#r1.body)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            local t = {}
+            local chunksize = 1024
+            for i=1, chunksize do
+                t[i] = 1
+            end
+            ngx.header.content_length = chunksize
+            ngx.print(table.concat(t))
+        ';
+    }
+    location = /c {
+        content_by_lua '
+            ngx.req.read_body()
+            local body, err = ngx.req.get_body_data()
+            if #body == 1024 then
+                local t = {}
+                for i=1, 32768 do
+                    t[i] = 0
+                end
+                ngx.print(table.concat(t))
+             else
+                ngx.log(ngx.ERR, "failed")
+             end
+        ';
+    }
+--- request
+GET /a
+--- response_body
+32768
+--- no_error_log
+[error]
+[warn]
