@@ -288,8 +288,8 @@ When the request is successful, `res` will contain the following fields:
 : The plain response body.
 * `res.body_reader` (function)
 :An iterator function for reading the body in a streaming fashion.
-* `res.pipe` (httpipe object)
-: A new httpipe object which use the current `res.body_reader` as input body by default.
+* `res.pipe` (httpipe)
+: A new http pipe which use the current `body_reader` as input body by default.
 * `res.eof` (boolean)
 : a boolean flag indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
