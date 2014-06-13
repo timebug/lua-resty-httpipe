@@ -281,7 +281,7 @@ The `opts` table accepts the following fields:
 * `read_timeout`: Sets the timeout in milliseconds for network read operations specially.
 * `send_timeout`: Sets the timeout in milliseconds for network send operations specially.
 * `stream`: If set to `true`, return an iterable `res.body_reader` object instead of `res.body`.
-* `maxsize`: Sets the maximum size in bytes to fetch. A response body larger than this will cause the fucntion to return a exceeds maxsize error. Defaults to nil which means no limit.
+* `maxsize`: Sets the maximum size in bytes to fetch. A response body larger than this will cause the fucntion to return a `exceeds maxsize` error. Defaults to nil which means no limit.
 
 When the request is successful, `res` will contain the following fields:
 
