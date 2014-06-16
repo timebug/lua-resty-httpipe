@@ -218,7 +218,7 @@ function _M.new(self, chunk_size, sock)
         state = state,
         chunked = false,
         keepalive = true,
-        eof = false,
+        _eof = false,
         previous = {},
     }, mt)
 end
@@ -432,7 +432,7 @@ function _M.set_keepalive(self, ...)
         return nil, "not initialized"
     end
 
-    self.eof = true
+    self._eof = true
 
     if self.keepalive then
         return sock:setkeepalive(...)
@@ -460,13 +460,13 @@ function _M.close(self)
         return nil, "not initialized"
     end
 
-    self.eof = true
+    self._eof = true
 
     return sock:close()
 end
 
 
-local function eof(self)
+local function read_eof(self)
     self:set_keepalive()
     return 'eof', nil
 end
@@ -500,11 +500,17 @@ function _M.read(self, chunk_size)
 end
 
 
+-- local eof = _M:eof()
+function _M.eof(self)
+    return self._eof
+end
+
+
 state_handlers = {
     read_statusline,
     read_header_part,
     read_body_part,
-    eof
+    read_eof
 }
 
 
@@ -524,7 +530,7 @@ function _M.read_response(self, ...)
     local headers = {}
     local chunks = {}
 
-    while not self.eof do
+    while not self._eof do
         local typ, res, err = self:read()
         if not typ then
             return nil, err
@@ -561,8 +567,7 @@ function _M.read_response(self, ...)
         end
     end
 
-    return { status = status, headers = headers, body = concat(chunks),
-             eof = self.eof }
+    return { status = status, headers = headers, body = concat(chunks) }
 end
 
 
@@ -632,7 +637,7 @@ local function get_body_reader(self, close)
 
         if typ == 'body_end' then
             if close then
-                eof(self)
+                read_eof(self)
             end
         end
 

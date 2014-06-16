@@ -297,8 +297,6 @@ When the request is successful, `res` will contain the following fields:
 :An iterator function for reading the body in a streaming fashion.
 * `res.pipe` (httpipe)
 : A new http pipe which use the current `body_reader` as input body by default.
-* `res.eof` (boolean)
-: a boolean flag indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
 **Note** All headers (request and response) are noramlized for
 capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
@@ -369,7 +367,7 @@ local res, err = hp:read_response{
 }
 ````
 
-Additionally there is no ability to stream the response body in this method. If the response is successful, res will contain the following fields: `res.status`, `res.headers`, `res.body`, `res.eof`.
+Additionally there is no ability to stream the response body in this method. If the response is successful, res will contain the following fields: `res.status`, `res.headers`, `res.body`.
 
 **Note** When return true in callback function，filter process will be interrupted.
 
@@ -384,6 +382,12 @@ Streaming parser for the full response.
 The user just needs to call the read method repeatedly until a nil token type is returned. For each token returned from the read method, just check the first return value for the current token type. The token type can be `statusline`, `header`, `header_end`, `body`, `body_end` and `eof`. About the format of `res` value, please refer to the above example. For example, several body tokens holding each body data chunk, so `res` value is equal to the body data chunk.
 
 In case of errors, returns nil with a string describing the error.
+
+## eof
+
+`syntax: local eof = hp:eof()`
+
+If return `true` indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
 # Utility
 
