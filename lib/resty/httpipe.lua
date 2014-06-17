@@ -401,7 +401,7 @@ local function read_statusline(self)
 
     local line, err = read_line()
     if not line then
-        return nil, nil, "read status line failed " .. err
+        return nil, nil, err
     end
 
     local status = match(line, "HTTP/%d*%.%d* (%d%d%d)")
