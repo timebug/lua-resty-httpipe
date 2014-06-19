@@ -3,7 +3,7 @@
 use Test::Nginx::Socket;
 use Cwd qw(cwd);
 
-plan tests => repeat_each() * (blocks() * 4) + 1;
+plan tests => repeat_each() * (blocks() * 4) + 2;
 
 my $pwd = cwd();
 
@@ -221,6 +221,54 @@ GET /a
 GET /a
 --- response_body
 OK
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 7: 304 without Content-Length.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(2000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b"
+            })
+
+            if not res then
+                ngx.header["X-Foo"] = err
+                ngx.header["X-Eof"] = tostring(hp:eof())
+                return ngx.exit(503)
+            end
+
+            ngx.status = res.status
+            for k,v in pairs(res.headers) do
+                ngx.header[k] = v
+            end
+            ngx.header["X-Eof"] = tostring(hp:eof())
+            return ngx.exit(res.status)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.status = 304
+            ngx.header["Content-Length"] = nil
+            ngx.header["X-Foo"] = "bar"
+            return ngx.exit(ngx.OK)
+        ';
+    }
+--- request
+GET /a
+--- response_headers
+X-Foo: bar
+X-Eof: true
+--- error_code: 304
 --- no_error_log
 [error]
 [warn]
