@@ -261,8 +261,17 @@ local function discard_line(self)
 end
 
 
+local function should_receive_body(method, code)
+    if method == "HEAD" then return nil end
+    if code == 204 or code == 304 then return nil end
+    if code >= 100 and code < 200 then return nil end
+    return true
+end
+
+
 local function read_body_part(self)
-    if self.method == "HEAD" then
+    if not self.req_socket and
+    not should_receive_body(self.method, self.status_code) then
         self.state = STATE_EOF
         return 'body_end', nil
     end
@@ -410,7 +419,9 @@ local function read_statusline(self)
         return nil, nil, line
     end
 
-    if status == "100" then
+    self.status_code = tonumber(status)
+
+    if self.status_code == 100 then
         local ok, err = discard_line(self)
         if not ok then
             return nil, nil, err
@@ -757,6 +768,7 @@ function _M.get_client_body_reader(self, chunk_size)
     hp.chunk = headers["Transfer-Encoding"] == 'chunked'
 
     hp.state = STATE_READING_BODY
+    hp.req_socket = 1
 
     return get_body_reader(hp)
 end
