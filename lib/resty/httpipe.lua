@@ -20,7 +20,6 @@ local concat = table.concat
 local insert = table.insert
 local setmetatable = setmetatable
 local ngx_re_match = ngx.re.match
-local escape_uri = ngx.escape_uri
 local encode_args = ngx.encode_args
 local ngx_req_socket = ngx.req.socket
 local ngx_req_get_headers = ngx.req.get_headers
@@ -87,14 +86,6 @@ local function normalize_header(key)
 end
 
 
-local function escape_path(path)
-    local s = gsub(path, "([^/]+)", function (s)
-        return escape_uri(s)
-    end)
-    return s
-end
-
-
 local function req_header(self, opts)
     self.method = upper(opts.method or "GET")
 
@@ -109,7 +100,7 @@ local function req_header(self, opts)
     elseif sub(path, 1, 1) ~= "/" then
         path = "/" .. path
     end
-    insert(req, escape_path(path))
+    insert(req, path)
 
     if type(opts.query) == "table" then
         opts.query = encode_args(opts.query)
