@@ -106,18 +106,31 @@ GET /abc/%E4%B8%AD%E6%96%87/%E6%B5%8B%E8%AF%95.txt
                 path = "/def" .. escape_path(ngx.var.uri),
             })
 
-            ngx.print(res.body)
+            local ver = ngx.config.nginx_version
+            if ver >= 1007004 then
+                if res.body == "/def/abc/%E4%B8%AD%E6%96%87/%E6%B5%8B%E8%AF%95.txt" then
+                    ngx.say("ok")
+                else
+                    ngx.say("err")
+                end
+            else
+                if res.body == "/def/abc/%e4%b8%ad%e6%96%87/%e6%b5%8b%e8%af%95.txt" then
+                    ngx.say("ok")
+                else
+                    ngx.say("err")
+                end
+            end
         ';
     }
     location /def {
         content_by_lua '
-            ngx.say(ngx.var.request_uri)
+            ngx.print(ngx.var.request_uri)
         ';
     }
 --- request
 GET /abc/中文/测试.txt
 --- response_body
-/def/abc/%e4%b8%ad%e6%96%87/%e6%b5%8b%e8%af%95.txt
+ok
 --- no_error_log
 [error]
 [warn]
@@ -145,18 +158,31 @@ GET /abc/中文/测试.txt
                 path = "/def" .. escape_path(ngx.var.uri),
             })
 
-            ngx.print(res.body)
+            local ver = ngx.config.nginx_version
+            if ver >= 1007004 then
+                if res.body == "/def/abc/%E4%B8%AD%E6%96%87/%E6%B5%8B%E8%AF%95.txt" then
+                    ngx.say("ok")
+                else
+                    ngx.say("err")
+                end
+            else
+                if res.body == "/def/abc/%e4%b8%ad%e6%96%87/%e6%b5%8b%e8%af%95.txt" then
+                    ngx.say("ok")
+                else
+                    ngx.say("err")
+                end
+            end
         ';
     }
     location /def {
         content_by_lua '
-            ngx.say(ngx.var.request_uri)
+            ngx.print(ngx.var.request_uri)
         ';
     }
 --- request
 GET /abc/%E4%B8%AD%E6%96%87/%E6%B5%8B%E8%AF%95.txt
 --- response_body
-/def/abc/%e4%b8%ad%e6%96%87/%e6%b5%8b%e8%af%95.txt
+ok
 --- no_error_log
 [error]
 [warn]

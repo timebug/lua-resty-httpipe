@@ -38,6 +38,11 @@ local HTTP = {
     [1.0] = " HTTP/1.0\r\n"
 }
 
+local PORT = {
+    http = 80,
+    https = 443
+}
+
 local USER_AGENT = "Resty/HTTPipe-" .. _M._VERSION
 
 local STATE_NOT_READY = 0
@@ -170,7 +175,7 @@ function _M.parse_uri(self, uri)
         return nil, err or "bad uri"
     end
 
-    if not m[3] then m[3] = 80 end
+    if not m[3] then m[3] = PORT[m[1]] end
     if not m[4] then
         m[4] = "/"
     else
@@ -223,6 +228,24 @@ function _M.set_timeout(self, time)
     end
 
     return sock:settimeout(time)
+end
+
+
+-- local session, err = _M:ssl_handshake(self, ...)
+function _M.ssl_handshake(self, ...)
+    local sock = self.sock
+    if not sock then
+        return nil, "not initialized"
+    end
+
+    if not ngx.config
+        or not ngx.config.ngx_lua_version
+        or ngx.config.ngx_lua_version < 9011
+    then
+        error("ngx_lua 0.9.11+ required")
+    end
+
+    return sock:sslhandshake(...)
 end
 
 
@@ -738,6 +761,18 @@ function _M.request_uri(self, uri, opts)
 
     if not opts.query then
         opts.query = args
+    end
+
+    if scheme == "https" then
+        local ssl_verify = true
+        if opts.ssl_verify == false then
+            ssl_verify = false
+        end
+
+        local ok, err = self:ssl_handshake(nil, host, ssl_verify)
+        if not ok then
+            return nil, err
+        end
     end
 
     return self:request(host, port, opts)

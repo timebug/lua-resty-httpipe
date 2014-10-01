@@ -8,7 +8,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 
 # Features
 
-* HTTP 1.0 and 1.1
+* HTTP 1.0/1.1 and HTTPS
 * Flexible interface design
 * Streaming reader and uploads
 * Chunked transfer encoding
@@ -233,6 +233,14 @@ An optional Lua table can be specified as the last argument to this method to sp
 
 Sets the timeout (in ms) protection for subsequent operations, including the `connect` method.
 
+## ssl_handshake
+
+`syntax: hp:ssl_handshake(reused_session?, server_name?, ssl_verify?)`
+
+Does SSL/TLS handshake on the currently established connection.
+
+See more: <http://wiki.nginx.org/HttpLuaModule#tcpsock:sslhandshake>
+
 ## set_keepalive
 
 `syntax: ok, err = hp:set_keepalive(max_idle_timeout, pool_size)`
@@ -284,23 +292,17 @@ The `opts` table accepts the following fields:
 * `send_timeout`: Sets the timeout in milliseconds for network send operations specially.
 * `stream`: If set to `true`, return an iterable `res.body_reader` object instead of `res.body`.
 * `maxsize`: Sets the maximum size in bytes to fetch. A response body larger than this will cause the fucntion to return a `exceeds maxsize` error. Defaults to nil which means no limit.
+* `ssl_verify`: A Lua boolean value to control whether to perform SSL verification.
 
 When the request is successful, `res` will contain the following fields:
 
-* `res.status` (number)
-: The resonse status, e.g. 200
-* `res.headers` (table)
-: A Lua table with response headers.
-* `res.body` (string)
-: The plain response body.
-* `res.body_reader` (function)
-:An iterator function for reading the body in a streaming fashion.
-* `res.pipe` (httpipe)
-: A new http pipe which use the current `body_reader` as input body by default.
+* `res.status` (number): The resonse status, e.g. 200
+* `res.headers` (table): A Lua table with response headers.
+* `res.body` (string): The plain response body.
+* `res.body_reader` (function): An iterator function for reading the body in a streaming fashion.
+* `res.pipe` (httpipe): A new http pipe which use the current `body_reader` as input body by default.
 
-**Note** All headers (request and response) are noramlized for
-capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the
-normal HTTP "standard."
+**Note** All headers (request and response) are noramlized for capitalization - e.g., Accept-Encoding, ETag, Foo-Bar, Baz - in the normal HTTP "standard."
 
 In case of errors, returns nil with a string describing the error.
 
@@ -434,9 +436,9 @@ local res, err = hp:request{
 
 Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
-Originally started life based on https://github.com/bakins/lua-resty-http-simple.
+Originally started life based on <https://github.com/bakins/lua-resty-http-simple>.
 
-The part of the interface design inspired from https://github.com/pintsized/lua-resty-http.
+The part of the interface design inspired from <https://github.com/pintsized/lua-resty-http>.
 
 Cosocket docs and implementation borrowed from the other lua-resty-* cosocket modules.
 

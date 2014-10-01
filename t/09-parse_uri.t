@@ -1,0 +1,62 @@
+# vim:set ft= ts=4 sw=4 et:
+
+use Test::Nginx::Socket;
+use Cwd qw(cwd);
+
+plan tests => repeat_each() * (blocks() * 4);
+
+my $pwd = cwd();
+
+our $HttpConfig = qq{
+    lua_package_path "$pwd/lib/?.lua;;";
+    error_log logs/error.log debug;
+};
+
+$ENV{TEST_NGINX_RESOLVER} = '8.8.8.8';
+
+no_long_string();
+#no_diff();
+
+run_tests();
+
+__DATA__
+=== TEST 1: http:80
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            local scheme, _, port, _, _ = unpack(hp:parse_uri("http://www.upyun.com/foo"))
+            ngx.say(scheme .. ":" .. tostring(port))
+        ';
+    }
+--- request
+GET /a
+--- response_body
+http:80
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 2: http:443
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            local scheme, _, port, _, _ = unpack(hp:parse_uri("https://www.upyun.com/foo"))
+            ngx.say(scheme .. ":" .. tostring(port))
+        ';
+    }
+--- request
+GET /a
+--- response_body
+https:443
+--- no_error_log
+[error]
+[warn]
