@@ -25,7 +25,7 @@ local ngx_req_socket = ngx.req.socket
 local ngx_req_get_headers = ngx.req.get_headers
 
 
-local _M = { _VERSION = "0.04" }
+local _M = { _VERSION = "0.05" }
 
 --------------------------------------
 -- LOCAL CONSTANTS                  --
