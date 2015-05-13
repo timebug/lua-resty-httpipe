@@ -702,7 +702,7 @@ function _M.request(self, ...)
         end
 
         if opts.ssl_enable then
-            local server_name = self.host
+            local server_name = opts.headers["Host"] or self.host
             if opts.ssl_server_name then
                 server_name = opts.ssl_server_name
             end
