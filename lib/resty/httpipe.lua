@@ -707,7 +707,7 @@ function _M.request(self, ...)
                 reused_session = true
             end
 
-            local server_name = host
+            local server_name = self.host
             if opts.ssl_server_name then
                 server_name = opts.ssl_server_name
             end
