@@ -700,6 +700,29 @@ function _M.request(self, ...)
         if not rc then
             return nil, err
         end
+
+        if opts.ssl_enable then
+            local reused_session
+            if opts.ssl_reused_session then
+                reused_session = true
+            end
+
+            local server_name = host
+            if opts.ssl_server_name then
+                server_name = opts.ssl_server_name
+            end
+
+            local ssl_verify = true
+            if opts.ssl_verify == false then
+                ssl_verify = false
+            end
+
+            local ok, err = self:ssl_handshake(reused_session, server_name,
+                                               ssl_verify)
+            if not ok then
+                return nil, err
+            end
+         end
     end
 
     local prev = self.previous.pipe
@@ -764,15 +787,7 @@ function _M.request_uri(self, uri, opts)
     end
 
     if scheme == "https" then
-        local ssl_verify = true
-        if opts.ssl_verify == false then
-            ssl_verify = false
-        end
-
-        local ok, err = self:ssl_handshake(nil, host, ssl_verify)
-        if not ok then
-            return nil, err
-        end
+        opts.ssl_enable = true
     end
 
     return self:request(host, port, opts)
