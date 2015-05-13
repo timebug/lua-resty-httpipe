@@ -694,6 +694,10 @@ function _M.request(self, ...)
         arguments[n] = nil
     end
 
+    if not opts.headers then
+        opts.headers = {}
+    end
+
     if n > 0 and arguments[1] then
         self.host = arguments[1]
         local rc, err = sock:connect(unpack(arguments))
