@@ -702,11 +702,6 @@ function _M.request(self, ...)
         end
 
         if opts.ssl_enable then
-            local reused_session
-            if opts.ssl_reused_session then
-                reused_session = true
-            end
-
             local server_name = self.host
             if opts.ssl_server_name then
                 server_name = opts.ssl_server_name
@@ -717,8 +712,7 @@ function _M.request(self, ...)
                 ssl_verify = false
             end
 
-            local ok, err = self:ssl_handshake(reused_session, server_name,
-                                               ssl_verify)
+            local ok, err = self:ssl_handshake(nil, server_name, ssl_verify)
             if not ok then
                 return nil, err
             end
