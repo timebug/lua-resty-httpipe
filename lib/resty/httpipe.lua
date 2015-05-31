@@ -566,8 +566,14 @@ function _M.read_response(self, ...)
         end
 
         if typ == 'header' then
-            if type(res) == "table" then
-                headers[normalize_header(res[1])] = res[2]
+            local key = normalize_header(res[1])
+            if headers[key] then
+                if type(headers[key]) ~= "table" then
+                    headers[key] = { headers[key] }
+                end
+                insert(headers[key], tostring(res[2]))
+            else
+                headers[key] = tostring(res[2])
             end
         end
 

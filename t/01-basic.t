@@ -102,11 +102,19 @@ OK
 
             ngx.status = res.status
             ngx.say(res.headers["X-Test"])
+
+            if type(res.headers["Set-Cookie"]) == "table" then
+                ngx.say(table.concat(res.headers["Set-Cookie"], ", "))
+            else
+                ngx.say(res.headers["Set-Cookie"])
+            end
+
         ';
     }
     location = /b {
         content_by_lua '
             ngx.header["X-Test"] = "x-value"
+            ngx.header["Set-Cookie"] = {"a=32; path=/", "b=4; path=/", "c"}
             ngx.say("OK")
         ';
     }
@@ -114,6 +122,7 @@ OK
 GET /a
 --- response_body
 x-value
+a=32; path=/, b=4; path=/, c
 --- no_error_log
 [error]
 [warn]
