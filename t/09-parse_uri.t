@@ -49,14 +49,28 @@ http:80
             local httpipe = require "resty.httpipe"
             local hp = httpipe:new()
 
-            local scheme, _, port, _, _ = unpack(hp:parse_uri("https://www.upyun.com/foo"))
-            ngx.say(scheme .. ":" .. tostring(port))
+            local function parse_uri(uri)
+                local res, err = hp:parse_uri(uri)
+                if res then
+                    local scheme, _, port, _, _ = unpack(res)
+                    ngx.say(scheme .. ":" .. tostring(port))
+                end
+                if err then
+                    ngx.say(err)
+                end
+            end
+
+            parse_uri("http://www.upyun.com/foo")
+            parse_uri("https://www.upyun.com/foo")
+            parse_uri("httpss://www.upyun.com/foo")
         ';
     }
 --- request
 GET /a
 --- response_body
+http:80
 https:443
+bad uri
 --- no_error_log
 [error]
 [warn]

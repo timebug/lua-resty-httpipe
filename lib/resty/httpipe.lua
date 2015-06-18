@@ -169,7 +169,7 @@ end
 
 -- local scheme, host, port, path, args = unpack(_M:parse_uri(uri))
 function _M.parse_uri(self, uri)
-    local r = [[^(http[s]*)://([^:/]+)(?::(\d+))?(.*)]]
+    local r = [[^(https?)://([^:/]+)(?::(\d+))?(.*)]]
     local m, err = ngx_re_match(uri, r, "jo")
     if not m then
         return nil, err or "bad uri"
@@ -388,10 +388,12 @@ local function read_header_part(self)
         return 'header_end', nil
     end
 
-    local name, value = match(line, "^(.-):%s*(.*)")
-    if not name then
+    local m, err = ngx_re_match(line, [[^(.+?):\s*(.+)]], "jo")
+    if not m then
         return 'header', line
     end
+
+    local name, value = m[1], m[2]
 
     local vname = lower(name)
     if vname == "content-length" then
@@ -413,11 +415,25 @@ end
 local function read_statusline(self)
     local sock = self.sock
     if self.read_line == nil then
-        local rl, err = sock:receiveuntil("\r\n")
+        local rl, err = sock:receiveuntil("\n")
         if not rl then
             return nil, nil, err
         end
-        self.read_line = rl
+        self.read_line = function()
+            --[[
+            The line terminator for message-header fields is the sequence CRLF.
+            However, we recommend that applications, when parsing such headers,
+            recognize a single LF as a line terminator and ignore the leading
+            CR.
+            REF: http://stackoverflow.com/questions/5757290/http-header-line-break-style
+            --]]
+            local data, err = rl()
+            if data and data:sub(-1) == "\r" then
+                data = data:sub(1, -2)
+            end
+
+            return data, err
+        end
     end
 
     local read_line = self.read_line
@@ -566,14 +582,16 @@ function _M.read_response(self, ...)
         end
 
         if typ == 'header' then
-            local key = normalize_header(res[1])
-            if headers[key] then
-                if type(headers[key]) ~= "table" then
-                    headers[key] = { headers[key] }
+            if type(res) == "table" then
+                local key = res[1]
+                if headers[key] then
+                    if type(headers[key]) ~= "table" then
+                        headers[key] = { headers[key] }
+                    end
+                    insert(headers[key], tostring(res[2]))
+                else
+                    headers[key] = tostring(res[2])
                 end
-                insert(headers[key], tostring(res[2]))
-            else
-                headers[key] = tostring(res[2])
             end
         end
 
