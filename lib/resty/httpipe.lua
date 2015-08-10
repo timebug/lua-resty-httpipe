@@ -828,7 +828,7 @@ function _M.get_client_body_reader(self, chunk_size)
     local headers = ngx_req_get_headers()
 
     hp.remaining = tonumber(headers["Content-Length"])
-    hp.chunk = headers["Transfer-Encoding"] == 'chunked'
+    hp.chunked = headers["Transfer-Encoding"] == 'chunked'
 
     hp.state = STATE_READING_BODY
     hp.req_socket = 1
