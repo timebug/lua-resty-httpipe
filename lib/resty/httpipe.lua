@@ -284,7 +284,7 @@ end
 
 
 local function read_body_part(self)
-    if not self.req_socket and
+    if not self.is_req_socket and
     not should_receive_body(self.method, self.status_code) then
         self.state = STATE_EOF
         return 'body_end', nil
@@ -673,7 +673,7 @@ function _M.send_request(self, opts)
 end
 
 
-local function get_body_reader(self, close)
+local function get_body_reader(self)
     return function (chunk_size)
         local typ, res, err = self:read(chunk_size)
         if not typ then
@@ -685,7 +685,7 @@ local function get_body_reader(self, close)
         end
 
         if typ == 'body_end' then
-            if close then
+            if not self.is_req_socket then
                 read_eof(self)
             end
         end
@@ -764,10 +764,8 @@ function _M.request(self, ...)
         end
     }
 
-    local body_reader = get_body_reader(self, true)
-
     if res and opts.stream then
-        res.body_reader = body_reader
+        res.body_reader = get_body_reader(self)
 
         local size = tonumber(res.headers["Content-Length"]) or 0
         if size > 0 then
@@ -778,7 +776,7 @@ function _M.request(self, ...)
 
             pipe.previous.pipe = self
             pipe.previous.content_length = size
-            pipe.previous.body_reader = body_reader
+            pipe.previous.body_reader = res.body_reader
 
             res.pipe = pipe
         end
@@ -831,7 +829,7 @@ function _M.get_client_body_reader(self, chunk_size)
     hp.chunked = headers["Transfer-Encoding"] == 'chunked'
 
     hp.state = STATE_READING_BODY
-    hp.req_socket = 1
+    hp.is_req_socket = 1
 
     return get_body_reader(hp)
 end
