@@ -268,7 +268,7 @@ local function discard_line(self)
 
     local line, err = read_line()
     if not line then
-        return nil, nil, err
+        return nil, err
     end
 
     return 1
