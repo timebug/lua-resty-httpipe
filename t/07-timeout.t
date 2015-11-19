@@ -39,7 +39,7 @@ __DATA__
     }
     location = /b {
         content_by_lua '
-            ngx.sleep(2)
+            ngx.sleep(3)
             return ngx.exit(ngx.HTTP_OK)
         ';
     }
@@ -74,7 +74,7 @@ lua tcp socket read timed out
         content_by_lua '
             local sock, _ = ngx.req.socket(true)
             sock:send("HTTP/1.1 100 Continue\\r\\n")
-            ngx.sleep(2)
+            ngx.sleep(3)
             sock:send("\\r\\n")
         ';
     }
