@@ -18,7 +18,7 @@ no_long_string();
 run_tests();
 
 __DATA__
-=== TEST 1: HTTP 1.1 Simple.
+=== TEST 1: HTTP 1.1.
 --- http_config eval: $::HttpConfig
 --- config
     location = /a {
@@ -40,20 +40,20 @@ __DATA__
     location = /b {
         content_by_lua '
             ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
-            ngx.print(ngx.req.http_version())
+            ngx.print(ngx.req.http_version() * 10)
         ';
     }
 --- request
 GET /a
 --- response_body
 nil
-1.1
+11
 --- no_error_log
 [error]
 [warn]
 
 
-=== TEST 2: HTTP 1.0 Simple.
+=== TEST 2: HTTP 1.0.
 --- http_config eval: $::HttpConfig
 --- config
     location = /a {
@@ -76,8 +76,7 @@ nil
     location = /b {
         content_by_lua '
             ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
-            local version = ngx.req.http_version() * 10
-            ngx.print(tostring(version))
+            ngx.print(ngx.req.http_version() * 10)
         ';
     }
 --- request
@@ -90,7 +89,7 @@ Keep-Alive
 [warn]
 
 
-=== TEST 3: HTTP 0.9 Simple.
+=== TEST 3: HTTP 0.9.
 --- http_config eval: $::HttpConfig
 --- config
     location = /a {
@@ -111,8 +110,7 @@ Keep-Alive
     }
     location = /b {
         content_by_lua '
-            local version = ngx.req.http_version() * 10
-            ngx.say(tostring(version))
+            ngx.print(ngx.req.http_version() * 10)
         ';
     }
 --- request
