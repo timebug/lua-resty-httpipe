@@ -18,6 +18,7 @@ local upper = string.upper
 local lower = string.lower
 local concat = table.concat
 local insert = table.insert
+local format = string.format
 local setmetatable = setmetatable
 local ngx_re_match = ngx.re.match
 local encode_args = ngx.encode_args
@@ -127,11 +128,13 @@ local function req_header(self, opts)
 
     if type(opts.body) == "string" then
         headers['Content-Length'] = #opts.body
+    elseif self.previous.content_length and
+    self.previous.content_length >= 0 then
+        headers['Content-Length'] = self.previous.content_length
     end
 
-    if self.method == "PUT" or self.method == "POST" then
-        local size = tonumber(headers['Content-Length'])
-        headers['Content-Length'] = size or self.previous.content_length or 0
+    if not headers['Content-Length'] and not headers["Transfer-Encoding"] then
+        headers["Transfer-Encoding"] = "chunked"
     end
 
     if not headers['Host'] then
@@ -653,9 +656,17 @@ function _M.send_request(self, opts)
             return nil, err
         end
     elseif type(opts.body) == "function" then
+        local chunked = headers["Transfer-Encoding"] == "chunked"
         repeat
             local chunk, err = opts.body()
             if chunk then
+                local size = #chunk
+                if chunked and size > 0 then
+                    chunk = concat({
+                            format("%X", size), "\r\n",
+                            chunk, "\r\n",
+                    })
+                end
                 local bytes, err = sock:send(chunk)
                 if not bytes then
                     return nil, err
@@ -664,6 +675,12 @@ function _M.send_request(self, opts)
                 return nil, err
             end
         until not chunk
+        if chunked then
+            local bytes, err = sock:send("0\r\n\r\n")
+            if not bytes then
+                return nil ,err
+            end
+        end
     end
 
     self.maxsize = opts.maxsize
@@ -767,19 +784,17 @@ function _M.request(self, ...)
     if res and opts.stream then
         res.body_reader = get_body_reader(self)
 
-        local size = tonumber(res.headers["Content-Length"]) or 0
-        if size > 0 then
-            local pipe, err = self:new(self.chunk_size)
-            if not pipe then
-                return nil, err
-            end
-
-            pipe.previous.pipe = self
-            pipe.previous.content_length = size
-            pipe.previous.body_reader = res.body_reader
-
-            res.pipe = pipe
+        local size = tonumber(res.headers["Content-Length"]) or -1 -- -1:chunked
+        local pipe, err = self:new(self.chunk_size)
+        if not pipe then
+            return nil, err
         end
+
+        pipe.previous.pipe = self
+        pipe.previous.content_length = size
+        pipe.previous.body_reader = res.body_reader
+
+        res.pipe = pipe
     end
 
     return res, err
