@@ -35,8 +35,8 @@ local _M = { _VERSION = "0.05" }
 local mt = { __index = _M }
 
 local HTTP = {
-    [1.1] = " HTTP/1.1\r\n",
-    [1.0] = " HTTP/1.0\r\n"
+    [11] = " HTTP/1.1\r\n",
+    [10] = " HTTP/1.0\r\n"
 }
 
 local PORT = {
@@ -127,30 +127,30 @@ local function req_header(self, opts)
     end
 
     if type(opts.body) == "string" then
-        headers['Content-Length'] = #opts.body
+        headers["Content-Length"] = #opts.body
     elseif self.previous.content_length and
     self.previous.content_length >= 0 then
-        headers['Content-Length'] = self.previous.content_length
+        headers["Content-Length"] = self.previous.content_length
     end
 
-    if not headers['Content-Length'] and not headers["Transfer-Encoding"] then
+    if not headers["Content-Length"] and not headers["Transfer-Encoding"] then
         headers["Transfer-Encoding"] = "chunked"
     end
 
-    if not headers['Host'] then
-        headers['Host'] = self.host
+    if not headers["Host"] then
+        headers["Host"] = self.host
     end
 
-    if not headers['User-Agent'] then
-        headers['User-Agent'] = USER_AGENT
+    if not headers["User-Agent"] then
+        headers["User-Agent"] = USER_AGENT
     end
 
-    if not headers['Accept'] then
-        headers['Accept'] = "*/*"
+    if not headers["Accept"] then
+        headers["Accept"] = "*/*"
     end
 
-    if opts.version == 0 and not headers['Connection'] then
-        headers['Connection'] = "Keep-Alive"
+    if opts.version == 10 and not headers["Connection"] then
+        headers["Connection"] = "Keep-Alive"
     end
 
     for key, values in pairs(headers) do
@@ -641,7 +641,7 @@ function _M.send_request(self, opts)
     if opts.version and not HTTP[opts.version] then
         return nil, "unknown HTTP version"
     else
-        opts.version = 1.1
+        opts.version = opts.version or 11
     end
 
     local req, headers = req_header(self, opts)
@@ -841,7 +841,7 @@ function _M.get_client_body_reader(self, chunk_size)
     local headers = ngx_req_get_headers()
 
     hp.remaining = tonumber(headers["Content-Length"])
-    hp.chunked = headers["Transfer-Encoding"] == 'chunked'
+    hp.chunked = headers["Transfer-Encoding"] == "chunked"
 
     hp.state = STATE_READING_BODY
     hp.is_req_socket = 1

@@ -282,7 +282,7 @@ In case of success, returns `1`. In case of errors, returns `nil` with a string 
 
 The `opts` table accepts the following fields:
 
-* `version`: Sets the HTTP version. Use `1.0` for HTTP/1.0 and `1.1` for HTTP/1.1. Defaults to `1.1`.
+* `version`: Sets the HTTP version. Use `10` for HTTP/1.0 and `11` for HTTP/1.1. Defaults to `11`.
 * `method`: The HTTP method string. Defaults to `GET`.
 * `path`: The path string. Default to `/`.
 * `query`: Specifies query parameters. Accepts either a string or a Lua table.

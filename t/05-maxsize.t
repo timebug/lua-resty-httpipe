@@ -102,7 +102,7 @@ exceeds maxsize
 === TEST 3: HTTP/1.0 with length greater than maximum size
 --- http_config eval: $::HttpConfig
 --- config
-    lua_http10_buffering off;
+    lua_http10_buffering on;
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
@@ -125,7 +125,7 @@ exceeds maxsize
             local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024,
-                version = 1.0
+                version = 10
             })
 
             ngx.say(err)
@@ -142,7 +142,7 @@ exceeds maxsize
 === TEST 4: HTTP/1.0 with length less than maximum size
 --- http_config eval: $::HttpConfig
 --- config
-    lua_http10_buffering off;
+    lua_http10_buffering on;
     resolver $TEST_NGINX_RESOLVER;
     location /foo {
         content_by_lua '
@@ -165,7 +165,7 @@ exceeds maxsize
             local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
                 path = "/foo",
                 maxsize = 1024,
-                version = 1.0
+                version = 10
             })
 
             ngx.say(err)
