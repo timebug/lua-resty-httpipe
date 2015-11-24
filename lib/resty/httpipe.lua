@@ -150,7 +150,7 @@ local function req_header(self, opts)
     end
 
     if opts.version == 10 and not headers["Connection"] then
-        headers["Connection"] = "Keep-Alive"
+        headers["Connection"] = "keep-alive"
     end
 
     for key, values in pairs(headers) do
@@ -387,6 +387,10 @@ local function read_header_part(self)
     end
 
     if line == "" then
+        if self.chunked then
+            self.remaining = nil
+        end
+
         self.state = STATE_READING_BODY
         return 'header_end', nil
     end
@@ -408,7 +412,7 @@ local function read_header_part(self)
     end
 
     if vname == "connection" and value == "close" then
-        self.keepalive = false
+        self.keepalive = value ~= "close"
     end
 
     return 'header', { normalize_header(name), value, line }
@@ -446,10 +450,15 @@ local function read_statusline(self)
         return nil, nil, err
     end
 
-    local status = match(line, "HTTP/%d*%.%d* (%d%d%d)")
-    if not status then
+    local version, status = match(line, "HTTP/(%d*%.%d*) (%d%d%d)")
+    if not version or not status then
         -- return nil, nil, "not match statusline"
         return nil, nil, line
+    end
+
+    version = tonumber(version) * 10
+    if version < 11 then
+        self.keepalive = false
     end
 
     self.status_code = tonumber(status)
@@ -840,8 +849,10 @@ function _M.get_client_body_reader(self, chunk_size)
     local hp = self:new(chunk_size, sock)
     local headers = ngx_req_get_headers()
 
-    hp.remaining = tonumber(headers["Content-Length"])
     hp.chunked = headers["Transfer-Encoding"] == "chunked"
+    if not hp.chunked then
+        hp.remaining = tonumber(headers["Content-Length"])
+    end
 
     hp.state = STATE_READING_BODY
     hp.is_req_socket = 1

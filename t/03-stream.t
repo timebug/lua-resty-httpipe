@@ -43,6 +43,8 @@ __DATA__
             local body = table.concat(chunks)
             ngx.say(#body)
             ngx.say(res.headers["Transfer-Encoding"])
+            ngx.say(res.headers["Content-Length"])
+            ngx.say(res.headers["Connection"])
         ';
     }
     location = /b {
@@ -68,6 +70,8 @@ GET /a
 --- response_body
 32768
 chunked
+nil
+keep-alive
 --- no_error_log
 [error]
 [warn]
@@ -99,6 +103,8 @@ chunked
             local body = table.concat(chunks)
             ngx.say(#body)
             ngx.say(res.headers["Transfer-Encoding"])
+            ngx.say(res.headers["Content-Length"])
+            ngx.say(res.headers["Connection"])
             ngx.say(#chunks)
         ';
     }
@@ -118,6 +124,8 @@ GET /a
 --- response_body
 32768
 nil
+nil
+close
 3
 --- no_error_log
 [error]
@@ -253,6 +261,65 @@ foobarbazfoobarbazfoobarbazfoobarbazfoobarbazfoobarbazfoobarbazfoobarbazfoobarba
     }
 --- request
 GET /a
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 7: Non-Chunked Streaming body reader with Content-Length response header.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                path = "/b",
+                stream = true,
+            })
+
+            local chunks = {}
+            repeat
+                local chunk = res.body_reader()
+                if chunk then
+                    table.insert(chunks, chunk)
+                end
+            until not chunk
+
+            local body = table.concat(chunks)
+            ngx.say(#body)
+            ngx.say(res.headers["Transfer-Encoding"])
+            ngx.say(res.headers["Content-Length"])
+            ngx.say(res.headers["Connection"])
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.header["Content-Length"] = 32768
+            for j=1,3 do
+                local t = {}
+                for i=1,10000 do
+                    t[i] = 0
+                end
+                ngx.print(table.concat(t))
+            end
+
+            local t = {}
+            local len = 2768
+            for i=1,len do
+                t[i] = 0
+            end
+            ngx.print(table.concat(t))
+        ';
+    }
+--- request
+GET /a
+--- response_body
+32768
+nil
+32768
+keep-alive
 --- no_error_log
 [error]
 [warn]
