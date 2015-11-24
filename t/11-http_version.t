@@ -34,6 +34,7 @@ __DATA__
             })
 
             ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
             ngx.say(res.body)
         ';
     }
@@ -47,6 +48,7 @@ __DATA__
 GET /a
 --- response_body
 nil
+keep-alive
 11
 --- no_error_log
 [error]
@@ -70,6 +72,7 @@ nil
             })
 
             ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
             ngx.say(res.body)
         ';
     }
@@ -82,7 +85,8 @@ nil
 --- request
 GET /a
 --- response_body
-Keep-Alive
+keep-alive
+keep-alive
 10
 --- no_error_log
 [error]
@@ -117,6 +121,160 @@ Keep-Alive
 GET /a
 --- response_body
 unknown HTTP version
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 4: HTTP 1.1 + close.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b",
+                headers = { ["Connection"] = "close" },
+            })
+
+            ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
+            ngx.say(res.body)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
+            ngx.print(ngx.req.http_version() * 10)
+        ';
+    }
+--- request
+GET /a
+--- response_body
+close
+close
+11
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 5: HTTP 1.0 + close.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                version = 10,
+                method = "GET",
+                path = "/b",
+                headers = { ["Connection"] = "close" },
+            })
+
+            ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
+            ngx.say(res.body)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
+            ngx.print(ngx.req.http_version() * 10)
+        ';
+    }
+--- request
+GET /a
+--- response_body
+close
+close
+10
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 6: HTTP 1.1 + default.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b",
+                headers = { ["Connection"] = "default" },
+            })
+
+            ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
+            ngx.say(res.body)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
+            ngx.print(ngx.req.http_version() * 10)
+        ';
+    }
+--- request
+GET /a
+--- response_body
+default
+keep-alive
+11
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 7: HTTP 1.0 + default.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                version = 10,
+                method = "GET",
+                path = "/b",
+                headers = { ["Connection"] = "default" },
+            })
+
+            ngx.say(res.headers["X-Foo"])
+            ngx.say(res.headers["Connection"])
+            ngx.say(res.body)
+        ';
+    }
+    location = /b {
+        content_by_lua '
+            ngx.header["X-Foo"] = ngx.req.get_headers()["Connection"]
+            ngx.print(ngx.req.http_version() * 10)
+        ';
+    }
+--- request
+GET /a
+--- response_body
+default
+close
+10
 --- no_error_log
 [error]
 [warn]
