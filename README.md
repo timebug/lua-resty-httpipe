@@ -157,7 +157,7 @@ A typical output of the `/simple` location defined above is:
 ```
 GET /echo HTTP/1.1
 Host: 127.0.0.1
-User-Agent: Resty/HTTPipe-0.04
+User-Agent: Resty/HTTPipe-1.00
 Accept: */*
 
 ```
@@ -178,7 +178,7 @@ read: ["body","Host: 127."]
 read: ["body","0.0.1\r\nUse"]
 read: ["body","r-Agent: R"]
 read: ["body","esty\/HTTPi"]
-read: ["body","pe-0.04\r\nA"]
+read: ["body","pe-1.00\r\nA"]
 read: ["body","ccept: *\/*"]
 read: ["body","\r\n\r\n"]
 read: ["body_end"]
@@ -190,13 +190,13 @@ A typical output of the `/advanced` location defined above is:
 ```
 POST /echo HTTP/1.1
 Content-Length: 84
-User-Agent: Resty/HTTPipe-0.04
+User-Agent: Resty/HTTPipe-1.00
 Accept: */*
 Host: 127.0.0.1
 
 GET /echo HTTP/1.1
 Host: 127.0.0.1
-User-Agent: Resty/HTTPipe-0.04
+User-Agent: Resty/HTTPipe-1.00
 Accept: */*
 
 
