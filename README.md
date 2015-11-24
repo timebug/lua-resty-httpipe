@@ -12,6 +12,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 * Flexible interface design
 * Streaming reader and uploads
 * Chunked-encoding request / response body
+* Sets the timeout for read and send operations
 * Keepalive
 
 ## Synopsis
