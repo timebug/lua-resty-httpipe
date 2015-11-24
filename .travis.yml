@@ -1,0 +1,13 @@
+language: c
+env:
+    - V_OPENRESTY=1.9.3.2
+before_script:
+    - sudo apt-get update -q
+    - sudo apt-get install libreadline-dev libncurses5-dev libpcre3-dev libssl-dev -y
+    - sudo apt-get install perl make build-essential cpanminus lua5.1 -y
+    - sudo cpanm Test::Nginx
+    - wget https://openresty.org/download/ngx_openresty-$V_OPENRESTY.tar.gz
+    - tar -xzvf ngx_openresty-$V_OPENRESTY
+    - cd ngx_openresty-$V_OPENRESTY && ./configure && make && sudo make install
+script:
+  - make test
