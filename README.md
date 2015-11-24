@@ -1,5 +1,7 @@
 # lua-resty-httpipe
 
+[![Build Status](https://travis-ci.org/timebug/lua-resty-httpipe.svg)](https://travis-ci.org/timebug/lua-resty-httpipe)
+
 Lua HTTP client cosocket driver for [OpenResty](http://openresty.org/) / [ngx_lua](https://github.com/chaoslawful/lua-nginx-module).
 
 # Status
