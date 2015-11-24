@@ -11,7 +11,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 * HTTP 1.0/1.1 and HTTPS
 * Flexible interface design
 * Streaming reader and uploads
-* Chunked transfer encoding
+* Chunked-encoding request / response body
 * Keepalive
 
 ## Synopsis
@@ -446,7 +446,7 @@ Cosocket docs and implementation borrowed from the other lua-resty-* cosocket mo
 
 This module is licensed under the 2-clause BSD license.
 
-Copyright (c) 2014, Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
+Copyright (c) 2015, Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
 All rights reserved.
 
