@@ -133,7 +133,8 @@ local function req_header(self, opts)
         headers["Content-Length"] = self.previous.content_length
     end
 
-    if not headers["Content-Length"] and not headers["Transfer-Encoding"] then
+    if type(opts.body) == "function" and
+    not headers["Content-Length"] and not headers["Transfer-Encoding"] then
         headers["Transfer-Encoding"] = "chunked"
     end
 
