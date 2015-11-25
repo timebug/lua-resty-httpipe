@@ -15,6 +15,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 * Streaming reader and uploads
 * Chunked-encoding request / response body
 * Sets the timeout for read and send operations
+* Limit the maximum response body size
 * Keepalive
 
 ## Synopsis
