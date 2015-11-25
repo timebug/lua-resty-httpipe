@@ -5,7 +5,7 @@ cache:
     - apt
     - ccache
 env:
-    - V_OPENRESTY=1.7.4.1
+    - V_OPENRESTY=1.9.3.2
 install:
     - cpanm -v --notest Test::Nginx
 before_script:
