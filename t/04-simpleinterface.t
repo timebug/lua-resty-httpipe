@@ -2,8 +2,7 @@
 
 use Test::Nginx::Socket;
 use Cwd qw(cwd);
-
-plan tests => repeat_each() * (blocks() * 4) + 6;
+use Test::Nginx::Socket 'no_plan';
 
 my $pwd = cwd();
 
