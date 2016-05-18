@@ -807,6 +807,37 @@ function _M.request(self, ...)
         res.pipe = pipe
     end
 
+    if res and opts.allow_redirects then
+        if res.status == 301 or res.status == 302 then
+            local url = res.headers["Location"]
+            if type(url) == "string" then
+                local parsed_uri, _ = self:parse_uri(url)
+                if parsed_uri then
+                    local scheme, host, port, path, args = unpack(parsed_uri)
+                    opts.path = path
+                    opts.query = args
+                    if scheme == "https" then
+                        opts.ssl_enable = true
+                    end
+
+                    if opts.stream then
+                        local res, err = self:read_response()
+                        if not res then
+                            return nil, err
+                        end
+                    end
+
+                    local hp, err = self:new(self.chunk_size)
+                    if not hp then
+                        return nil, err
+                    end
+
+                    return hp:request(host, port, opts)
+                end
+            end
+        end
+    end
+
     return res, err
 end
 
