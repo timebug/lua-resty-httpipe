@@ -751,6 +751,9 @@ function _M.request(self, ...)
 
     if n > 0 and arguments[1] then
         self.host = arguments[1]
+        if n > 1 and arguments[2] then
+            self.port = arguments[2]
+        end
         local rc, err = sock:connect(unpack(arguments))
         if not rc then
             return nil, err
@@ -811,6 +814,10 @@ function _M.request(self, ...)
         if res.status == 301 or res.status == 302 then
             local url = res.headers["Location"]
             if type(url) == "string" then
+                if sub(url, 1, 1) == "/" then -- relative URL
+                    url = "http://" .. self.host .. ":" ..
+                        tostring(self.port) .. url
+                end
                 local parsed_uri, _ = self:parse_uri(url)
                 if parsed_uri then
                     local scheme, host, port, path, args = unpack(parsed_uri)
@@ -818,6 +825,11 @@ function _M.request(self, ...)
                     opts.query = args
                     if scheme == "https" then
                         opts.ssl_enable = true
+                    end
+
+                    if type(opts.is_valid_addr) == "function" and
+                    not opts.is_valid_addr(host) then
+                        return res, err
                     end
 
                     if opts.stream then
@@ -831,6 +843,8 @@ function _M.request(self, ...)
                     if not hp then
                         return nil, err
                     end
+
+                    opts.allow_redirects = false
 
                     return hp:request(host, port, opts)
                 end
