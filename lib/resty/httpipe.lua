@@ -839,14 +839,17 @@ function _M.request(self, ...)
                         end
                     end
 
-                    local hp, err = self:new(self.chunk_size)
-                    if not hp then
-                        return nil, err
-                    end
+                    self.total_size = 0
+                    self.state = STATE_NOT_READY
+                    self.chunked = false
+                    self.keepalive = true
+                    self._eof = false
+                    self.previous = {}
+                    self.remaining = nil
 
                     opts.allow_redirects = false
 
-                    return hp:request(host, port, opts)
+                    return self:request(host, port, opts)
                 end
             end
         end

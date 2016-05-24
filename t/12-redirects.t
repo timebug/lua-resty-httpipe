@@ -161,3 +161,47 @@ GET /a
 --- no_error_log
 [error]
 [warn]
+
+
+=== TEST 5: Stream + EOF.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b",
+                allow_redirects = true,
+                stream = true
+            })
+
+            ngx.say(res.status)
+            ngx.say(hp:eof())
+
+            local res, err = hp:read_response()
+
+            ngx.say(hp:eof())
+            ngx.print(res.body)
+        ';
+    }
+    location = /b {
+        content_by_lua 'ngx.redirect("/c", 302)';
+    }
+    location = /c {
+        echo "OK";
+    }
+--- request
+GET /a
+--- response_body
+200
+false
+true
+OK
+--- no_error_log
+[error]
+[warn]
