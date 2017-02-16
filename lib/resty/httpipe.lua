@@ -488,11 +488,16 @@ function _M.set_keepalive(self, ...)
 
     self._eof = true
 
-    if self.keepalive then
+    -- If sock is from ngx.req.socket(), do not setkeepalive nor close.
+    if sock.setkeepalive and self.keepalive then
         return sock:setkeepalive(...)
     end
 
-    return sock:close()
+    if sock.close then
+        return sock:close()
+    end
+
+    return 1
 end
 
 
