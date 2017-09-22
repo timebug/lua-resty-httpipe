@@ -1,4 +1,4 @@
--- Copyright (C) 2015 Monkey Zhang (timebug)
+-- Copyright (C) Monkey Zhang (timebug), UPYUN Inc.
 
 
 local type = type

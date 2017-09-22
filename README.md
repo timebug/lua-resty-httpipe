@@ -1,8 +1,38 @@
-# lua-resty-httpipe
+# Name
 
 [![Build Status](https://travis-ci.org/timebug/lua-resty-httpipe.svg)](https://travis-ci.org/timebug/lua-resty-httpipe)
 
-Lua HTTP client cosocket driver for [OpenResty](http://openresty.org/) / [ngx_lua](https://github.com/chaoslawful/lua-nginx-module).
+lua-resty-httpipe - Lua HTTP client cosocket driver for [OpenResty](http://openresty.org/) / [ngx_lua](https://github.com/chaoslawful/lua-nginx-module), interfaces are more flexible.
+
+# Table of Contents
+
+* [Status](#status)
+* [Features](#features)
+* [Synopsis](#synopsis)
+* [Methods](#methods)
+  * [Connection](#connection)
+    * [new](#new)
+    * [connect](#connect)
+    * [set_timeout](#set_timeout)
+    * [ssl_handshake](#ssl_handshake)
+    * [set_keepalive](#set_keepalive)
+    * [get_reused_times](#get_reused_times)
+    * [close](#close)
+  * [Requesting](#requesting)
+    * [request](#request)
+    * [request_uri](#request_uri)
+    * [res.body_reader](#res.body_reader)
+    * [send_request](#send_request)
+    * [read_response](#read_response)
+    * [read](#read)
+    * [eof](#eof)
+  * [Utility](#utility)
+    * [parse_uri](#parse_uri)
+    * [get_client_body_reader](#get_client_body_reader)
+* [Author](#author)
+* [Copyright and License](#copyright-and-license)
+* [See Also](#see-also)
+
 
 # Status
 
@@ -18,7 +48,7 @@ Ready for testing. Probably production ready in most cases, though not yet prove
 * Limit the maximum response body size
 * Keepalive
 
-## Synopsis
+# Synopsis
 
 ````lua
 lua_package_path "/path/to/lua-resty-httpipe/lib/?.lua;;";
@@ -28,7 +58,7 @@ server {
   listen 9090;
 
   location /echo {
-    content_by_lua '
+    content_by_lua_block {
       local raw_header = ngx.req.raw_header()
 
       if ngx.req.get_method() == "GET" then
@@ -40,11 +70,11 @@ server {
 
       ngx.print(raw_header)
       ngx.print(body)
-    ';
+    }
   }
 
   location /simple {
-    content_by_lua '
+    content_by_lua_block {
       local httpipe = require "resty.httpipe"
 
       local hp, err = httpipe:new()
@@ -69,11 +99,11 @@ server {
       end
 
       ngx.say(res.body)
-    ';
+    }
   }
 
   location /generic {
-    content_by_lua '
+    content_by_lua_block {
       local cjson = require "cjson"
       local httpipe = require "resty.httpipe"
 
@@ -112,11 +142,11 @@ server {
               break
           end
       end
-    ';
+    }
   }
 
   location /advanced {
-    content_by_lua '
+    content_by_lua_block {
       local httpipe = require "resty.httpipe"
 
       local hp, err = httpipe:new()
@@ -150,7 +180,7 @@ server {
       end
 
       ngx.say(r1.body)
-    ';
+    }
   }
 
 }
@@ -206,17 +236,23 @@ Accept: */*
 
 ```
 
-# Connection
+# Methods
 
-## new
+[Back to TOC](#table-of-contents)
 
-`syntax: hp, err = httpipe:new(chunk_size?, sock?)`
+## Connection
+
+### new
+
+**syntax:** `hp, err = httpipe:new(chunk_size?, sock?)`
 
 Creates the httpipe object. In case of failures, returns `nil` and a string describing the error.
 
 The argument, `chunk_size`, specifies the buffer size used by cosocket reading operations. Defaults to `8192`.
 
-## connect
+[Back to TOC](#table-of-contents)
+
+### connect
 
 `syntax: ok, err = hp:connect(host, port, options_table?)`
 
@@ -231,23 +267,29 @@ An optional Lua table can be specified as the last argument to this method to sp
 * `pool`
 : Specifies a custom name for the connection pool being used. If omitted, then the connection pool name will be generated from the string template `<host>:<port>` or `<unix-socket-path>`.
 
-## set_timeout
+[Back to TOC](#table-of-contents)
 
-`syntax: hp:set_timeout(time)`
+### set_timeout
+
+**syntax:** `hp:set_timeout(time)`
 
 Sets the timeout (in ms) protection for subsequent operations, including the `connect` method.
 
-## ssl_handshake
+[Back to TOC](#table-of-contents)
 
-`syntax: hp:ssl_handshake(reused_session?, server_name?, ssl_verify?)`
+### ssl_handshake
+
+**syntax:** `hp:ssl_handshake(reused_session?, server_name?, ssl_verify?)`
 
 Does SSL/TLS handshake on the currently established connection.
 
 See more: <http://wiki.nginx.org/HttpLuaModule#tcpsock:sslhandshake>
 
-## set_keepalive
+[Back to TOC](#table-of-contents)
 
-`syntax: ok, err = hp:set_keepalive(max_idle_timeout, pool_size)`
+### set_keepalive
+
+**syntax:** `ok, err = hp:set_keepalive(max_idle_timeout, pool_size)`
 
 Attempts to puts the current connection into the ngx_lua cosocket connection pool.
 
@@ -257,32 +299,38 @@ You can specify the max idle timeout (in ms) when the connection is in the pool 
 
 In case of success, returns 1. In case of errors, returns nil with a string describing the error.
 
-## get_reused_times
+[Back to TOC](#table-of-contents)
 
-`syntax: times, err = hp:get_reused_times()`
+### get_reused_times
+
+**syntax:** `times, err = hp:get_reused_times()`
 
 This method returns the (successfully) reused times for the current connection. In case of error, it returns `nil` and a string describing the error.
 
 If the current connection does not come from the built-in connection pool, then this method always returns `0`, that is, the connection has never been reused (yet). If the connection comes from the connection pool, then the return value is always non-zero. So this method can also be used to determine if the current connection comes from the pool.
 
-## close
+[Back to TOC](#table-of-contents)
 
-`syntax: ok, err = hp:close()`
+### close
+
+**syntax:** `ok, err = hp:close()`
 
 Closes the current connection and returns the status.
 
 In case of success, returns `1`. In case of errors, returns `nil` with a string describing the error.
 
+[Back to TOC](#table-of-contents)
 
-# Requesting
 
-## request
+## Requesting
 
-`syntax: res, err = hp:request(opts?)`
+### request
 
-`syntax: res, err = hp:request(host, port, opts?)`
+**syntax:** `res, err = hp:request(opts?)`
 
-`syntax: res, err = hp:request("unix:/path/to/unix-domain.socket", opts?)`
+**syntax:** `res, err = hp:request(host, port, opts?)`
+
+**syntax:** `res, err = hp:request("unix:/path/to/unix-domain.socket", opts?)`
 
 The `opts` table accepts the following fields:
 
@@ -310,9 +358,11 @@ When the request is successful, `res` will contain the following fields:
 
 In case of errors, returns nil with a string describing the error.
 
-## request_uri
+[Back to TOC](#table-of-contents)
 
-`syntax: res, err = hp:request_uri(uri, opts?)`
+### request_uri
+
+**syntax:** `res, err = hp:request_uri(uri, opts?)`
 
 The simple interface. Options supplied in the `opts` table are the same as in the generic interface, and will override components found in the uri itself.
 
@@ -320,7 +370,9 @@ Returns a res object as same as `hp:request` method.
 
 In case of errors, returns nil with a string describing the error.
 
-## res.body_reader
+[Back to TOC](#table-of-contents)
+
+### res.body_reader
 
 The `body_reader` iterator can be used to stream the response body in chunk sizes of your choosing, as follows:
 
@@ -340,15 +392,19 @@ repeat
 until not chunk
 ````
 
-## send_request
+[Back to TOC](#table-of-contents)
 
-`syntax: ok, err = hp:send_request(opts?)`
+### send_request
+
+**syntax:** `ok, err = hp:send_request(opts?)`
 
 In case of errors, returns nil with a string describing the error.
 
-## read_response
+[Back to TOC](#table-of-contents)
 
-`syntax: local res, err = hp:read_response(callback?)`
+### read_response
+
+**syntax:** `local res, err = hp:read_response(callback?)`
 
 The `callback` table accepts the following fields:
 
@@ -379,9 +435,11 @@ Additionally there is no ability to stream the response body in this method. If 
 
 In case of errors, returns nil with a string describing the error.
 
-## read
+[Back to TOC](#table-of-contents)
 
-`syntax: local typ, res, err = hp:read()`
+### read
+
+**syntax:** `local typ, res, err = hp:read()`
 
 Streaming parser for the full response.
 
@@ -389,23 +447,29 @@ The user just needs to call the read method repeatedly until a nil token type is
 
 In case of errors, returns nil with a string describing the error.
 
-## eof
+[Back to TOC](#table-of-contents)
 
-`syntax: local eof = hp:eof()`
+### eof
+
+**syntax:** `local eof = hp:eof()`
 
 If return `true` indicating already consume all the data; Otherwise, the request there is still no end, you need call `hp:close` to close the connection forcibly.
 
-# Utility
+[Back to TOC](#table-of-contents)
 
-## parse_uri
+## Utility
 
-`syntax: local scheme, host, port, path, args = unpack(hp:parse_uri(uri))`
+### parse_uri
+
+**syntax:** `local scheme, host, port, path, args = unpack(hp:parse_uri(uri))`
 
 This is a convenience function allowing one to more easily use the generic interface, when the input data is a URI.
 
-## get_client_body_reader
+[Back to TOC](#table-of-contents)
 
-`syntax: reader, err = hp:get_client_body_reader(chunk_size?)`
+### get_client_body_reader
+
+**syntax:** `reader, err = hp:get_client_body_reader(chunk_size?)`
 
 Returns an iterator function which can be used to read the downstream client request body in a streaming fashion. For example:
 
@@ -436,6 +500,8 @@ local res, err = hp:request{
 }
 ```
 
+[Back to TOC](#table-of-contents)
+
 # Author
 
 Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
@@ -446,11 +512,13 @@ The part of the interface design inspired from <https://github.com/pintsized/lua
 
 Cosocket docs and implementation borrowed from the other lua-resty-* cosocket modules.
 
-# Licence
+[Back to TOC](#table-of-contents)
+
+# Copyright and License
 
 This module is licensed under the 2-clause BSD license.
 
-Copyright (c) 2015, Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
+Copyright (c) 2015 - 2017, Monkey Zhang <timebug.info@gmail.com>, UPYUN Inc.
 
 All rights reserved.
 
@@ -461,3 +529,12 @@ Redistribution and use in source and binary forms, with or without modification,
 * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+[Back to TOC](#table-of-contents)
+
+# See Also
+
+* the ngx_lua module: https://github.com/openresty/lua-nginx-module
+* OpenResty: https://openresty.org/
+
+[Back to TOC](#table-of-contents)
