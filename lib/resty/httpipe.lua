@@ -254,7 +254,7 @@ end
 
 
 -- local ok, err = _M:connect(self, host, port, opts?)
--- local ok, err = _M:connect("unix:/path/to/unix-domain.socket", opts?)
+-- local ok, err = _M:connect(self, "unix:/path/to/unix-domain.socket", opts?)
 function _M.connect(self, ...)
     local sock = self.sock
     if not sock then
@@ -262,6 +262,21 @@ function _M.connect(self, ...)
     end
 
     self.host = select(1, ...)
+    if sub(self.host, 1, 5) == "unix:" then
+        -- https://tools.ietf.org/html/rfc2616#section-14.23
+        -- A client MUST include a Host header field in all HTTP/1.1 request
+        -- messages . If the requested URI does not include an Internet host
+        -- name for the service being requested, then the Host header field MUST
+        -- be given with an empty value.
+        self.host = ""
+    end
+
+    self.port = select(2, ...)
+    if type(self.port) == "string" then
+        self.port = tonumber(self.port)
+    elseif type(self.port) ~= "number" then
+        self.port = nil
+    end
 
     return sock:connect(...)
 end
@@ -750,10 +765,17 @@ function _M.request(self, ...)
     end
 
     if n > 0 and arguments[1] then
-        self.host = arguments[1]
-        local rc, err = sock:connect(unpack(arguments))
+        local rc, err = self:connect(unpack(arguments))
         if not rc then
             return nil, err
+        end
+
+        if self.port then
+            if opts.ssl_enable and self.port ~= 443 then
+                self.host = self.host .. ":" .. tostring(self.port)
+            elseif not opts.ssl_enable and self.port ~= 80 then
+                self.host = self.host .. ":" .. tostring(self.port)
+            end
         end
 
         if opts.ssl_enable then

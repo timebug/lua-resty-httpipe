@@ -12,6 +12,8 @@ our $HttpConfig = qq{
 };
 
 $ENV{TEST_NGINX_RESOLVER} = '8.8.8.8';
+$ENV{TEST_NGINX_HTML_DIR} ||= html_dir();
+$ENV{TEST_NGINX_PWD} ||= $pwd;
 
 no_long_string();
 #no_diff();
@@ -277,6 +279,74 @@ GET /a
 X-Foo: bar
 X-Eof: true
 --- error_code: 304
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 8: Simple get + Host.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("127.0.0.1", ngx.var.server_port, {
+                method = "GET",
+                path = "/b"
+            })
+
+            ngx.print(res.body)
+        ';
+    }
+    location = /b {
+        echo $http_host;
+    }
+--- request
+GET /a
+--- response_body
+127.0.0.1:1984
+--- no_error_log
+[error]
+[warn]
+
+
+=== TEST 9: Simple get + Unix Socket Host.
+--- http_config
+    lua_package_path "$TEST_NGINX_PWD/lib/?.lua;;";
+    error_log logs/error.log debug;
+    server {
+        listen unix:/tmp/nginx.sock;
+        default_type 'text/plain';
+        server_tokens off;
+
+        location = /b {
+            echo $http_host;
+        }
+    }
+--- config
+    location = /a {
+        content_by_lua '
+            local httpipe = require "resty.httpipe"
+            local hp = httpipe:new()
+
+            hp:set_timeout(5000)
+
+            local res, err = hp:request("unix:/tmp/nginx.sock", {
+                method = "GET",
+                path = "/b"
+            })
+
+            ngx.status = res.status
+            ngx.print(res.body)
+        ';
+    }
+--- request
+GET /a
+--- error_code: 400
 --- no_error_log
 [error]
 [warn]
